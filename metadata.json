@@ -1,0 +1,6 @@
+{
+  "name": "Weather Sky Global",
+  "description": "Premium glassmorphic weather application",
+  "requestFramePermissions": ["geolocation", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

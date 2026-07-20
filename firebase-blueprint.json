@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "UserAnalytics": {
+      "title": "User Analytics",
+      "description": "Tracks the latest city search of a user.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Name of the user."
+        },
+        "lastSearchCity": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Last city the user searched for."
+        },
+        "lastSearchCountry": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Last country the user searched for."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "Server timestamp of the last search."
+        }
+      },
+      "required": ["name", "lastSearchCity", "lastSearchCountry", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/user_analytics/{userName}": {
+      "schema": {
+        "$ref": "#/entities/UserAnalytics"
+      },
+      "description": "Collection storing user search analytics."
+    }
+  }
+}

@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidUserAnalytics(data) {
+      return data.keys().hasAll(['name', 'lastSearchCity', 'lastSearchCountry', 'timestamp'])
+        && data.keys().size() == 4
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.lastSearchCity is string && data.lastSearchCity.size() > 0 && data.lastSearchCity.size() <= 100
+        && data.lastSearchCountry is string && data.lastSearchCountry.size() >= 0 && data.lastSearchCountry.size() <= 100
+        && data.timestamp == request.time;
+    }
+
+    match /user_analytics/{userName} {
+      allow create: if isValidUserAnalytics(request.resource.data) && request.resource.data.name == userName;
+      allow update: if isValidUserAnalytics(request.resource.data) && request.resource.data.name == userName && request.resource.data.name == resource.data.name;
+    }
+  }
+}
