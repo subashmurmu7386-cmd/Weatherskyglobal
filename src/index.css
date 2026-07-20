@@ -1,0 +1,135 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Dynamic Weather Backgrounds */
+.weather-bg {
+  transition: background 1.5s ease-in-out;
+}
+
+.clear-night {
+  background: linear-gradient(to bottom right, #020617, #0f172a, #1e3a8a);
+}
+
+.clear-day {
+  background: linear-gradient(to bottom right, #38bdf8, #0284c7, #0369a1);
+}
+
+.rainy {
+  background: linear-gradient(to bottom right, #1e293b, #334155, #0f172a);
+}
+
+.sunset {
+  background: linear-gradient(to bottom right, #4c1d95, #be123c, #f59e0b);
+}
+
+/* Custom Scrollbar for Forecast */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Radar Animation */
+@keyframes radar-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.radar-sweep {
+  animation: radar-spin 3s linear infinite;
+  background: conic-gradient(rgba(34, 197, 94, 0.4) 0deg, transparent 70deg, transparent 360deg);
+  border-radius: 50%;
+}
+
+/* Subtle Grid Background for Map */
+.grid-bg {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+/* Hero Canvas Animations */
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.2); }
+}
+.animate-twinkle { animation: twinkle linear infinite; }
+
+@keyframes float-cloud-1 {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(150vw); }
+}
+.animate-float-cloud-1 { animation: float-cloud-1 30s linear infinite; }
+
+@keyframes float-cloud-2 {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(150vw); }
+}
+.animate-float-cloud-2 { animation: float-cloud-2 45s linear infinite; }
+
+@keyframes rain-fall {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+.animate-rain-fall { animation: rain-fall linear infinite; }
+
+@keyframes snow-fall {
+  0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  100% { transform: translate(20px, 100vh) rotate(360deg); opacity: 0.3; }
+}
+.animate-snow-fall { animation: snow-fall linear infinite; }
+
+@keyframes lightning-flash {
+  0%, 95%, 98%, 100% { opacity: 0; }
+  96%, 99% { opacity: 0.8; }
+}
+.animate-lightning-flash { animation: lightning-flash 7s infinite; }
+
+/* Frog Animations */
+@keyframes frog-jump {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-40px) scale(1.05); }
+}
+.animate-frog-jump { animation: frog-jump 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94); }
+
+@keyframes frog-wave {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-15deg); }
+  75% { transform: rotate(15deg); }
+}
+.animate-frog-wave { animation: frog-wave 0.5s ease-in-out 3; }
+
+@keyframes frog-wink {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(0.95) skewX(-2deg); filter: brightness(1.1); }
+}
+.animate-frog-wink { animation: frog-wink 0.4s ease-in-out; }
+
+
+@keyframes wind-blow {
+  0% { transform: translate(-50px, 0) rotate(0deg); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translate(100vw, -100px) rotate(360deg); opacity: 0; }
+}
+.animate-wind-blow { animation: wind-blow linear infinite; }
+
+.fog-mask {
+  mask-image: radial-gradient(circle 100px at var(--mouse-x, 50%) var(--mouse-y, 50%), transparent 0%, black 100%);
+  -webkit-mask-image: radial-gradient(circle 100px at var(--mouse-x, 50%) var(--mouse-y, 50%), transparent 0%, black 100%);
+}
+
+
+/* Force visible overflow for HeroCard components to prevent clipping of absolute speech bubbles */
+.hero-card,
+.overflow-visible-override {
+  overflow: visible !important;
+}
