@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Loader2, SearchX, MapPin, CloudRain, Wind, AlertTriangle, Sun, Moon, Droplets, CloudLightning, Snowflake, Cloud } from 'lucide-react';
+import { Loader2, SearchX, MapPin, CloudRain, CloudDrizzle, Wind, AlertTriangle, Sun, Moon, Droplets, CloudLightning, Snowflake, Cloud } from 'lucide-react';
 
 interface HeroCanvasProps {
   weatherData?: any; 
@@ -15,20 +15,21 @@ export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeConte
   const precip = weatherData?.current?.precip_mm || 0;
   let category = 'clear';
   
-  if ((condition.includes('rain') || condition.includes('drizzle')) && precip > 0) {
+  const isPatchyOrLight = condition.includes('patchy') || condition.includes('light');
+  const isActiveRain = condition.includes('heavy') || condition.includes('moderate') || condition.includes('torrential') || condition.includes('showers') || condition === 'rain';
+
+  if (condition.includes('thunder') || condition.includes('storm')) {
+    category = 'storm';
+  } else if ((isActiveRain || (condition.includes('rain') && !isPatchyOrLight)) && precip > 0) {
     category = 'rain';
-  } else if ((condition.includes('rain') || condition.includes('drizzle')) && precip === 0) {
-    category = 'overcast';
   } else if (condition.includes('snow') || condition.includes('ice') || condition.includes('blizzard')) {
     category = 'snow';
   } else if (condition.includes('overcast') || condition.includes('heavy cloud')) {
     category = 'overcast';
-  } else if (condition.includes('cloud') || condition.includes('mist')) {
+  } else if (condition.includes('cloud') || condition.includes('mist') || condition.includes('patchy') || condition.includes('drizzle')) {
     category = 'cloudy';
   } else if (condition.includes('fog')) {
     category = 'fog';
-  } else if (condition.includes('thunder') || condition.includes('storm')) {
-    category = 'storm';
   } else if (condition.includes('wind') || weatherData?.current?.wind_kph > 30) {
     category = 'wind';
   }
@@ -51,8 +52,12 @@ export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeConte
 
   const getWeatherIcon = (text: string) => {
     const t = text.toLowerCase();
+    const isPatchyOrLight = t.includes('patchy') || t.includes('light');
     if (t.includes('thunder') || t.includes('storm')) return <CloudLightning size={20} className="text-yellow-400" />;
-    if (t.includes('rain') || t.includes('drizzle') || t.includes('shower')) return <CloudRain size={20} className="text-blue-300" />;
+    if ((t.includes('rain') || t.includes('drizzle') || t.includes('shower'))) {
+      if (isPatchyOrLight || t.includes('drizzle')) return <CloudDrizzle size={20} className="text-blue-200" />;
+      return <CloudRain size={20} className="text-blue-300" />;
+    }
     if (t.includes('snow') || t.includes('ice') || t.includes('blizzard') || t.includes('sleet')) return <Snowflake size={20} className="text-blue-100" />;
     if (t.includes('cloud') || t.includes('overcast') || t.includes('mist')) return <Cloud size={20} className="text-gray-300" />;
     if (t.includes('fog')) return <Cloud size={20} className="text-gray-400 opacity-80" />;
