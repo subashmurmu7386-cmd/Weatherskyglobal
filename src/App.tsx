@@ -413,8 +413,10 @@ export default function App() {
   const updateTheme = (current: WeatherData['current']) => {
     const isDay = current.is_day === 1;
     const conditionText = current.condition.text.toLowerCase();
+    const isPatchyOrLight = conditionText.includes('patchy') || conditionText.includes('light');
+    const isActiveRain = conditionText.includes('heavy') || conditionText.includes('moderate') || conditionText.includes('torrential') || conditionText.includes('showers') || conditionText === 'rain';
     
-    if (conditionText.includes('rain') || conditionText.includes('drizzle') || conditionText.includes('shower') || conditionText.includes('thunder')) {
+    if ((isActiveRain || (conditionText.includes('rain') && !isPatchyOrLight)) || conditionText.includes('shower') || conditionText.includes('thunder')) {
       setWeatherTheme('rainy');
     } else if (conditionText.includes('snow') || conditionText.includes('ice') || conditionText.includes('blizzard')) {
       setWeatherTheme('rainy'); // Reusing rainy theme for snow for now
@@ -422,7 +424,7 @@ export default function App() {
       if (conditionText.includes('clear') || conditionText.includes('sunny')) {
          setWeatherTheme('clear-day');
       } else {
-         // Partly cloudy / overcast
+         // Partly cloudy / overcast / patchy rain
          setWeatherTheme('clear-day');
       }
     } else {
@@ -732,11 +734,16 @@ export default function App() {
               </div>
             </button>
           )}
-          <a href="YOUR_MONETAG_DIRECT_LINK_HERE" target="_blank" rel="noopener noreferrer" className="p-1 bg-black/20 border border-white/20 rounded-full backdrop-blur-md hover:bg-black/40 transition-all cursor-pointer overflow-hidden shadow-lg block">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-blue-400 flex items-center justify-center">
-              <User size={16} className="text-white" />
-            </div>
-          </a>
+          <button 
+            onClick={() => {
+              // @ts-ignore
+              const monetagLink = import.meta.env.VITE_MONETAG_DIRECT_LINK || "YOUR_MONETAG_DIRECT_LINK_HERE";
+              window.open(monetagLink, '_blank');
+            }}
+            className="px-4 py-2 bg-gradient-to-tr from-blue-600 to-blue-400 border border-white/20 rounded-xl backdrop-blur-md hover:from-blue-500 hover:to-blue-300 transition-all cursor-pointer shadow-lg flex items-center justify-center text-xs sm:text-sm font-bold text-white tracking-wider uppercase"
+          >
+            DONATE ME A ONE ADS
+          </button>
         </div>
       </header>
 
