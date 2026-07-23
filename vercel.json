@@ -1,17 +1,8 @@
 {
-  "functions": {
-    "api/**/*.ts": {
-      "memory": 1024
-    }
-  },
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
+      "destination": "/server.ts"
     }
   ]
 }
