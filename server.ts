@@ -19,11 +19,35 @@ async function startServer() {
       }
       
       const apiKey = process.env.WEATHER_API_KEY || 'f6f975bfbd7e4d4c9ea72207260707';
-      // Do not URL-encode commas for GPS coordinates, WeatherAPI expects them raw
-      const safeQuery = encodeURIComponent(query.trim()).replace(/%2C/g, ',');
-      const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${safeQuery}&days=15&aqi=yes`;
       
-      const response = await fetch(url);
+      let safeQuery = encodeURIComponent(query.trim()).replace(/%2C/g, ',');
+      const isCoord = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(query.trim());
+      
+      if (isCoord) {
+        const parts = query.trim().split(',');
+        const lat = parseFloat(parts[0]).toFixed(4);
+        const lon = parseFloat(parts[1]).toFixed(4);
+        safeQuery = `${lat},${lon}`;
+      }
+
+      let url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${safeQuery}&days=15&aqi=yes&alerts=yes`;
+      
+      let response = await fetch(url);
+
+      if (!response.ok && isCoord) {
+        // Fallback: search for nearest location
+        const searchUrl = `https://api.weatherapi.com/v1/search.json?key=${apiKey}&q=${safeQuery}`;
+        const searchRes = await fetch(searchUrl);
+        if (searchRes.ok) {
+          const searchData = await searchRes.json();
+          if (searchData && searchData.length > 0) {
+            const fallbackQuery = encodeURIComponent(searchData[0].url || searchData[0].name);
+            url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${fallbackQuery}&days=15&aqi=yes&alerts=yes`;
+            response = await fetch(url);
+          }
+        }
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('WeatherAPI error details:', errorText);
@@ -39,7 +63,7 @@ async function startServer() {
   });
 
   // API Route for AI Recommendations
-  app.post('/api/ai-insights', async (req, res) => {
+  app.post('/api/weather-tips', async (req, res) => {
     try {
       const { temperature, condition, rainChance, uvIndex, aqi, locationName } = req.body;
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY  });
@@ -58,7 +82,7 @@ Only provide the three bullet points. Make it concise and actionable.`;
       let responseText = "";
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-3.1-flash-lite-preview',
+          model: 'gemini-3.1-flash-lite',
           contents: prompt,
         });
         responseText = response.text || "";
@@ -94,7 +118,7 @@ Only provide the three bullet points. Make it concise and actionable.`;
       contents.push({ role: 'user', parts: [{ text: message }] });
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-lite-preview',
+        model: 'gemini-3.1-flash-lite',
         contents,
         config: {
           systemInstruction,
