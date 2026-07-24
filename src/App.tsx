@@ -376,7 +376,7 @@ export default function App() {
     setAiLoading(true);
     try {
       // Connects to the Express backend which securely calls the Gemini API
-      const response = await fetch('/api/recommendations', {
+      const response = await fetch('/api/ai-insights', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -721,16 +721,16 @@ export default function App() {
         </div>
       )}
 
-      <header className="flex justify-between items-center p-4 md:px-8 py-6 max-w-7xl mx-auto w-full relative z-20">
-        <div className="font-display font-bold text-xl md:text-2xl tracking-tight flex items-center gap-2 drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] text-white bg-black/40 px-5 py-2.5 rounded-2xl backdrop-blur-md border border-white/20">
-          <CloudRain className="text-blue-400 drop-shadow-md" size={28} />
-          <span>Weather Sky <span className="text-blue-400 drop-shadow-md">Global</span></span>
+      <header className="flex justify-between items-center px-2 py-4 md:px-8 md:py-6 max-w-7xl mx-auto w-full relative z-20 gap-1.5 md:gap-4">
+        <div className="font-display font-bold text-[13px] sm:text-xl md:text-2xl tracking-tight flex items-center gap-1 md:gap-2 drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] text-white bg-black/40 px-2.5 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl backdrop-blur-md border border-white/20 shrink-0">
+          <CloudRain className="text-blue-400 drop-shadow-md w-5 h-5 md:w-7 md:h-7" />
+          <span className="whitespace-nowrap">Weather Sky <span className="text-blue-400 drop-shadow-md">Global</span></span>
         </div>
-        <div className="flex items-center space-x-2 md:space-x-4">
+        <div className="flex items-center space-x-1.5 md:space-x-4">
           {deferredPrompt && (
-            <button onClick={handleInstallClick} className="p-1 bg-black/20 border border-white/20 rounded-full backdrop-blur-md hover:bg-black/40 transition-all cursor-pointer overflow-hidden shadow-lg block text-white" aria-label="Install App">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center">
-                <Download size={18} />
+            <button onClick={handleInstallClick} className="shrink-0 p-1 bg-black/20 border border-white/20 rounded-full backdrop-blur-md hover:bg-black/40 transition-all cursor-pointer overflow-hidden shadow-lg block text-white" aria-label="Install App">
+              <div className="w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center">
+                <Download className="w-3.5 h-3.5 md:w-[18px] md:h-[18px]" />
               </div>
             </button>
           )}
@@ -740,7 +740,7 @@ export default function App() {
               const monetagLink = import.meta.env.VITE_MONETAG_DIRECT_LINK || "YOUR_MONETAG_DIRECT_LINK_HERE";
               window.open(monetagLink, '_blank');
             }}
-            className="px-4 py-2 bg-gradient-to-tr from-blue-600 to-blue-400 border border-white/20 rounded-xl backdrop-blur-md hover:from-blue-500 hover:to-blue-300 transition-all cursor-pointer shadow-lg flex items-center justify-center text-xs sm:text-sm font-bold text-white tracking-wider uppercase"
+            className="shrink-0 px-2.5 py-1.5 md:px-4 md:py-2 bg-gradient-to-tr from-blue-600 to-blue-400 border border-white/20 rounded-lg md:rounded-xl backdrop-blur-md hover:from-blue-500 hover:to-blue-300 transition-all cursor-pointer shadow-lg flex items-center justify-center text-[10px] sm:text-sm font-bold text-white tracking-wider uppercase whitespace-nowrap"
           >
             DONATE ME A ONE ADS
           </button>
