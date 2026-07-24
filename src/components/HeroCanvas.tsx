@@ -7,9 +7,10 @@ interface HeroCanvasProps {
   loading?: boolean;
   onLocate?: () => void;
   userName?: string;
+  enableAnimations?: boolean;
 }
 
-export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeContext, loading, onLocate, userName }) => {
+export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeContext, loading, onLocate, userName, enableAnimations = true }) => {
   // Logic to determine weather category
   const condition = weatherData?.current?.condition?.text?.toLowerCase() || 'clear';
   const precip = weatherData?.current?.precip_mm || 0;
@@ -137,7 +138,7 @@ export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeConte
 
        {/* Background Environment Layers */}
        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
-          <WeatherLayers category={category} timePhase={timePhase} />
+          <WeatherLayers category={category} timePhase={timePhase} enableAnimations={enableAnimations} />
        </div>
 
        {/* Center Weather Widget */}
@@ -224,17 +225,17 @@ const getTimeGradient = (phase: string, category: string) => {
   }
 };
 
-const WeatherLayers = ({ category, timePhase }: { category: string, timePhase: string }) => {
+const WeatherLayers = ({ category, timePhase, enableAnimations }: { category: string, timePhase: string, enableAnimations?: boolean }) => {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2.5rem]">
        {/* Sun & Rainbow for clear day */}
        {(timePhase === 'day' || timePhase === 'sunrise' || timePhase === 'sunset') && category !== 'storm' && category !== 'rain' && category !== 'fog' && (
          <>
-           <div className="absolute top-[20%] left-[20%] w-32 h-32 bg-[#FFD700] rounded-full animate-sun-glow z-0"></div>
+           <div className={`absolute top-[20%] left-[20%] w-32 h-32 bg-[#FFD700] rounded-full ${enableAnimations ? 'animate-sun-glow' : ''} z-0`}></div>
            {/* Rainbow arc */}
            <div className="absolute top-[10%] right-[-10%] w-[600px] h-[600px] rounded-full border-[40px] border-transparent border-t-[rgba(255,0,0,0.2)] border-r-[rgba(255,165,0,0.2)] border-b-[rgba(255,255,0,0.2)] opacity-60 mix-blend-screen filter blur-[8px] transform rotate-[-45deg] z-0"></div>
            {/* Falling Autumn Leaves */}
-           {Array.from({length: 8}).map((_, i) => (
+           {enableAnimations && Array.from({length: 8}).map((_, i) => (
              <div key={i} className="absolute w-4 h-4 bg-[#e76f51] rounded-tl-full rounded-br-full animate-fall-leaf opacity-80" style={{
                 top: -20 + 'px',
                 left: Math.random() * 100 + '%',
@@ -247,7 +248,7 @@ const WeatherLayers = ({ category, timePhase }: { category: string, timePhase: s
 
        {/* Moon for night */}
        {timePhase === 'night' && category !== 'storm' && category !== 'rain' && category !== 'fog' && (
-         <div className="absolute top-[20%] left-[30%] w-28 h-28 bg-[#f8fafc] rounded-full animate-moon-glow z-0 flex items-center justify-center overflow-hidden">
+         <div className={`absolute top-[20%] left-[30%] w-28 h-28 bg-[#f8fafc] rounded-full ${enableAnimations ? 'animate-moon-glow' : ''} z-0 flex items-center justify-center overflow-hidden`}>
             {/* Crisp craters for the moon */}
             <div className="absolute top-4 left-6 w-6 h-6 bg-[#cbd5e1] rounded-full"></div>
             <div className="absolute bottom-6 right-8 w-10 h-10 bg-[#cbd5e1] rounded-full"></div>
@@ -258,7 +259,7 @@ const WeatherLayers = ({ category, timePhase }: { category: string, timePhase: s
        {/* Stars for night */}
        {timePhase === 'night' && category !== 'storm' && category !== 'rain' && (
          <div className="absolute inset-0 z-0">
-           {Array.from({length: 60}).map((_, i) => (
+           {enableAnimations && Array.from({length: 60}).map((_, i) => (
              <div key={`star-${i}`} className="absolute bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.9)]" style={{
                 width: Math.random() * 3 + 1 + 'px',
                 height: Math.random() * 3 + 1 + 'px',
@@ -273,8 +274,8 @@ const WeatherLayers = ({ category, timePhase }: { category: string, timePhase: s
        {/* Clouds */}
        {(category === 'cloudy' || category === 'clear') && timePhase !== 'night' && (
          <div className="absolute inset-0 opacity-80 z-10">
-           <div className="absolute top-[10%] left-[-10%] w-64 h-24 bg-white/90 rounded-full blur-[20px] animate-float-cloud-1"></div>
-           <div className="absolute top-[30%] left-[60%] w-80 h-32 bg-white/80 rounded-full blur-[30px] animate-float-cloud-2"></div>
+           <div className={`absolute top-[10%] left-[-10%] w-64 h-24 bg-white/90 rounded-full blur-[20px] ${enableAnimations ? 'animate-float-cloud-1' : ''}`}></div>
+           <div className={`absolute top-[30%] left-[60%] w-80 h-32 bg-white/80 rounded-full blur-[30px] ${enableAnimations ? 'animate-float-cloud-2' : ''}`}></div>
          </div>
        )}
 
@@ -282,14 +283,14 @@ const WeatherLayers = ({ category, timePhase }: { category: string, timePhase: s
        {(category === 'storm' || category === 'rain' || category === 'overcast') && (
          <div className="absolute inset-0 opacity-95 z-10">
            <div className="absolute top-[-5%] left-[-10%] w-[120%] h-[30%] bg-slate-800/90 rounded-[100%] blur-[40px]"></div>
-           <div className="absolute top-[10%] left-[-20%] w-[150%] h-[40%] bg-slate-900/95 rounded-[100%] blur-[50px] animate-pulse"></div>
+           <div className={`absolute top-[10%] left-[-20%] w-[150%] h-[40%] bg-slate-900/95 rounded-[100%] blur-[50px] ${enableAnimations ? 'animate-pulse' : ''}`}></div>
          </div>
        )}
 
        {/* Rain */}
        {(category === 'rain' || category === 'storm') && (
          <div className="absolute inset-0 z-20">
-           {Array.from({length: 80}).map((_, i) => (
+           {enableAnimations && Array.from({length: 80}).map((_, i) => (
              <div key={`rain-${i}`} className="absolute bg-blue-200/60 w-[2px] rounded" style={{
                 height: Math.random() * 40 + 20 + 'px',
                 left: Math.random() * 100 + '%',
@@ -301,7 +302,7 @@ const WeatherLayers = ({ category, timePhase }: { category: string, timePhase: s
        )}
 
        {/* Storm Lightning Flash */}
-       {category === 'storm' && (
+       {category === 'storm' && enableAnimations && (
          <div className="absolute inset-0 bg-white/90 opacity-0 animate-lightning-flash mix-blend-overlay z-30 pointer-events-none"></div>
        )}
     </div>
