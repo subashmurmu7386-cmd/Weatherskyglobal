@@ -4,9 +4,11 @@
  */
 
 import { useState, useEffect, KeyboardEvent } from 'react';
-import { Search, Mic, MapPin, User, Moon, CloudRain, Droplets, Wind, Thermometer, Loader2, AlertCircle, Sun, Cloud, CloudLightning, Snowflake, CalendarDays, Map as MapIcon, Compass, Sparkles, Umbrella, CarFront, Shirt, Sprout, Tractor, Snowflake as FrostIcon, TreePine, Trophy, Activity, SunMedium, Eye, Sunrise, Sunset, MoonStar, Heart, X, Menu, CloudDrizzle, CloudSnow, Send, Download, Tent, Fish, Waves, Flower2, Dog, PartyPopper, Telescope, BookOpen, Flame, Award, Zap, ShieldAlert, WifiOff, SearchX, CheckCircle } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Search, Mic, Maximize, Minimize, MapPin, User, Moon, CloudRain, Droplets, Wind, Thermometer, Loader2, AlertCircle, Sun, Cloud, CloudLightning, Snowflake, CalendarDays, Map as MapIcon, Compass, Sparkles, Umbrella, CarFront, Shirt, Sprout, Tractor, Snowflake as FrostIcon, TreePine, Trophy, Activity, SunMedium, Eye, Sunrise, Sunset, MoonStar, Heart, X, Menu, CloudDrizzle, CloudSnow, Send, Download, Tent, Fish, Waves, Flower2, Dog, PartyPopper, Telescope, BookOpen, Flame, Award, Zap, ShieldAlert, WifiOff, SearchX, CheckCircle } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, setDoc, serverTimestamp } from 'firebase/firestore';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid, Legend } from 'recharts';
 import { HeroCanvas } from './components/HeroCanvas';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -63,6 +65,14 @@ interface WeatherData {
       };
     }>;
   };
+  alerts?: {
+    alert: Array<{
+      headline: string;
+      severity: string;
+      event: string;
+      desc: string;
+    }>;
+  };
 }
 
 const placeholderForecast = Array.from({ length: 15 }).map((_, i) => {
@@ -94,6 +104,8 @@ const placeholderHourly = Array.from({ length: 24 }).map((_, i) => {
 export default function App() {
   const [weatherTheme, setWeatherTheme] = useState('clear-night');
   const [activeMapTab, setActiveMapTab] = useState('Rain Map');
+  const [isMapExpanded, setIsMapExpanded] = useState<boolean>(false);
+  const [enableAnimations, setEnableAnimations] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [weatherData, setWeatherData] = useState<WeatherData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -376,7 +388,7 @@ export default function App() {
     setAiLoading(true);
     try {
       // Connects to the Express backend which securely calls the Gemini API
-      const response = await fetch('/api/ai-insights', {
+      const response = await fetch('/api/weather-tips', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -721,16 +733,16 @@ export default function App() {
         </div>
       )}
 
-      <header className="flex justify-between items-center px-2 py-4 md:px-8 md:py-6 max-w-7xl mx-auto w-full relative z-20 gap-1.5 md:gap-4">
-        <div className="font-display font-bold text-[13px] sm:text-xl md:text-2xl tracking-tight flex items-center gap-1 md:gap-2 drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] text-white bg-black/40 px-2.5 py-2 md:px-5 md:py-2.5 rounded-xl md:rounded-2xl backdrop-blur-md border border-white/20 shrink-0">
-          <CloudRain className="text-blue-400 drop-shadow-md w-5 h-5 md:w-7 md:h-7" />
-          <span className="whitespace-nowrap">Weather Sky <span className="text-blue-400 drop-shadow-md">Global</span></span>
+      <header className="flex justify-between items-center px-2 py-3 md:px-8 md:py-6 max-w-7xl mx-auto w-full relative z-20 gap-1 md:gap-4 overflow-hidden">
+        <div className="font-display font-bold text-[11px] sm:text-[13px] md:text-2xl tracking-tight flex items-center gap-1 md:gap-2 drop-shadow-[0_4px_6px_rgba(0,0,0,0.8)] text-white bg-black/40 px-2 py-1.5 md:px-5 md:py-2.5 rounded-lg md:rounded-2xl backdrop-blur-md border border-white/20 shrink-0 whitespace-nowrap overflow-hidden text-ellipsis">
+          <CloudRain className="text-blue-400 drop-shadow-md w-4 h-4 md:w-7 md:h-7 shrink-0" />
+          <span className="whitespace-nowrap">Weather Sky <span className="text-blue-400 drop-shadow-md hidden min-[360px]:inline">Global</span></span>
         </div>
-        <div className="flex items-center space-x-1.5 md:space-x-4">
+        <div className="flex items-center space-x-1.5 md:space-x-4 shrink-0 overflow-hidden">
           {deferredPrompt && (
-            <button onClick={handleInstallClick} className="shrink-0 p-1 bg-black/20 border border-white/20 rounded-full backdrop-blur-md hover:bg-black/40 transition-all cursor-pointer overflow-hidden shadow-lg block text-white" aria-label="Install App">
-              <div className="w-6 h-6 md:w-8 md:h-8 rounded-full flex items-center justify-center">
-                <Download className="w-3.5 h-3.5 md:w-[18px] md:h-[18px]" />
+            <button onClick={handleInstallClick} className="shrink-0 p-1 bg-black/20 border border-white/20 rounded-full backdrop-blur-md hover:bg-black/40 transition-all cursor-pointer shadow-lg block text-white" aria-label="Install App">
+              <div className="w-5 h-5 md:w-8 md:h-8 rounded-full flex items-center justify-center">
+                <Download className="w-3 h-3 md:w-[18px] md:h-[18px]" />
               </div>
             </button>
           )}
@@ -740,7 +752,7 @@ export default function App() {
               const monetagLink = import.meta.env.VITE_MONETAG_DIRECT_LINK || "YOUR_MONETAG_DIRECT_LINK_HERE";
               window.open(monetagLink, '_blank');
             }}
-            className="shrink-0 px-2.5 py-1.5 md:px-4 md:py-2 bg-gradient-to-tr from-blue-600 to-blue-400 border border-white/20 rounded-lg md:rounded-xl backdrop-blur-md hover:from-blue-500 hover:to-blue-300 transition-all cursor-pointer shadow-lg flex items-center justify-center text-[10px] sm:text-sm font-bold text-white tracking-wider uppercase whitespace-nowrap"
+            className="shrink-0 px-2 py-1.5 md:px-4 md:py-2 bg-gradient-to-tr from-blue-600 to-blue-400 border border-white/20 rounded-md md:rounded-xl backdrop-blur-md hover:from-blue-500 hover:to-blue-300 transition-all cursor-pointer shadow-lg flex items-center justify-center text-[9px] sm:text-[10px] md:text-sm font-bold text-white tracking-wider uppercase whitespace-nowrap"
           >
             DONATE ME A ONE ADS
           </button>
@@ -750,6 +762,24 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-grow flex flex-col items-center px-4 py-6 md:py-10 w-full max-w-5xl mx-auto space-y-12">
         
+        {/* Weather Alerts Banner */}
+        {weatherData?.alerts && weatherData.alerts.alert && weatherData.alerts.alert.length > 0 && (
+          <div className="w-full bg-red-900/40 backdrop-blur-xl border border-red-500/50 rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col sm:flex-row items-start sm:items-center gap-4 animate-in slide-in-from-top-10 fade-in duration-500 -mt-4 mb-4 relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-red-600/10 to-orange-500/10"></div>
+            <ShieldAlert className="text-red-400 shrink-0 relative z-10 w-8 h-8 sm:w-10 sm:h-10" />
+            <div className="flex-grow relative z-10">
+              <h4 className="text-red-100 font-bold text-base sm:text-lg tracking-tight uppercase flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                Severe Weather Alert
+              </h4>
+              <p className="text-red-200/90 text-sm sm:text-base mt-1 line-clamp-2">
+                <span className="font-semibold text-white">{weatherData.alerts.alert[0].event}:</span> {weatherData.alerts.alert[0].headline}
+              </p>
+            </div>
+            {/* Optional: Add a 'Read More' button here if you want to expand the alert later */}
+          </div>
+        )}
+
         {/* BRANDING & LOADING SYSTEM: App Loading Screen */}
         {/* Placeholder container. When true, show this instead of main content. */}
         {false && (
@@ -868,8 +898,25 @@ export default function App() {
           </div>
         )}
 
+        {/* Controls Bar */}
+        <div className="w-full flex justify-end mb-4 px-2">
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <span className="text-sm font-medium text-white/70 group-hover:text-white transition-colors">Ambient Animations</span>
+            <div className="relative">
+              <input 
+                type="checkbox" 
+                className="sr-only" 
+                checked={enableAnimations}
+                onChange={() => setEnableAnimations(!enableAnimations)}
+              />
+              <div className={`block w-10 h-6 rounded-full transition-colors duration-300 ${enableAnimations ? 'bg-blue-500' : 'bg-white/20'}`}></div>
+              <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-300 ${enableAnimations ? 'translate-x-4' : 'translate-x-0'}`}></div>
+            </div>
+          </label>
+        </div>
+
         {/* Cinematic Floating Island Hero Canvas */}
-        <HeroCanvas weatherData={weatherData} activeContext={activeContext} loading={loading} onLocate={handleLocation} userName={userName} />
+        <HeroCanvas weatherData={weatherData} activeContext={activeContext} loading={loading} onLocate={handleLocation} userName={userName} enableAnimations={enableAnimations} />
         
         {/* Advanced Health & Environment Metrics */}
         {weatherData && (
@@ -883,14 +930,14 @@ export default function App() {
                 if (aqiIndex >= 4) aqiInfo = { text: 'Hazardous', color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/20' };
                 
                 return (
-                  <div className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg`}>
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }} className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg`}>
                     <div className="flex items-center gap-2 mb-2">
                        <Sprout size={16} className="text-blue-300" />
                        <span className="text-sm font-medium text-blue-200/70">Air Quality</span>
                     </div>
                     <div className="text-2xl font-bold mb-1">{aqiIndex}</div>
                     <div className={`text-xs font-semibold px-2 py-1 rounded-full border ${aqiInfo.bg} ${aqiInfo.color}`}>{aqiInfo.text}</div>
-                  </div>
+                  </motion.div>
                 );
              })()}
 
@@ -904,66 +951,66 @@ export default function App() {
                 if (uv >= 8) { uvText = 'Very High'; uvColor = 'text-red-400'; }
                 
                 return (
-                  <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
                     <div className="flex items-center gap-2 mb-2">
                        <Sun size={16} className="text-blue-300" />
                        <span className="text-sm font-medium text-blue-200/70">UV Index</span>
                     </div>
                     <div className="text-2xl font-bold mb-1">{uv}</div>
                     <div className={`text-sm font-medium ${uvColor}`}>{uvText}</div>
-                  </div>
+                  </motion.div>
                 );
              })()}
 
              {/* Humidity Card */}
-             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
+             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.3 }} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
                <div className="flex items-center gap-2 mb-2">
                   <Droplets size={16} className="text-blue-300" />
                   <span className="text-sm font-medium text-blue-200/70">Humidity</span>
                </div>
                <div className="text-2xl font-bold mb-1">{weatherData.current.humidity}%</div>
                <div className="text-sm font-medium text-white/60">The dew point is {weatherData.current.dewpoint_c || Math.round(weatherData.current.temp_c - ((100 - weatherData.current.humidity) / 5))}°</div>
-             </div>
+             </motion.div>
 
              {/* Feels Like Card */}
-             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
+             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.4 }} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
                <div className="flex items-center gap-2 mb-2">
                   <Thermometer size={16} className="text-blue-300" />
                   <span className="text-sm font-medium text-blue-200/70">Feels Like</span>
                </div>
                <div className="text-2xl font-bold mb-1">{Math.round(weatherData.current.feelslike_c)}°</div>
                <div className="text-sm font-medium text-white/60">Similar to actual temp.</div>
-             </div>
+             </motion.div>
 
              {/* Wind Speed Card */}
-             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
+             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.5 }} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
                <div className="flex items-center gap-2 mb-2">
                   <Wind size={16} className="text-blue-300" />
                   <span className="text-sm font-medium text-blue-200/70">Wind Speed</span>
                </div>
                <div className="text-2xl font-bold mb-1">{weatherData.current.wind_kph} <span className="text-lg font-medium text-white/60">km/h</span></div>
                <div className="text-sm font-medium text-white/60">Direction: {weatherData.current.wind_dir}</div>
-             </div>
+             </motion.div>
              
              {/* Wind Gust Card */}
-             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
+             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.6 }} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
                <div className="flex items-center gap-2 mb-2">
                   <Wind size={16} className="text-blue-300" />
                   <span className="text-sm font-medium text-blue-200/70">Wind Gusts</span>
                </div>
                <div className="text-2xl font-bold mb-1">{weatherData.current.gust_kph} <span className="text-lg font-medium text-white/60">km/h</span></div>
                <div className="text-sm font-medium text-white/60">Max speed</div>
-             </div>
+             </motion.div>
              
              {/* Dew Point Card */}
-             <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
+             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.7 }} className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-[1.5rem] p-4 flex flex-col items-start justify-center shadow-lg">
                <div className="flex items-center gap-2 mb-2">
                   <CloudDrizzle size={16} className="text-blue-300" />
                   <span className="text-sm font-medium text-blue-200/70">Dew Point</span>
                </div>
                <div className="text-2xl font-bold mb-1">{weatherData.current.dewpoint_c || Math.round(weatherData.current.temp_c - ((100 - weatherData.current.humidity) / 5))}°</div>
                <div className="text-sm font-medium text-white/60">Comfort level</div>
-             </div>
+             </motion.div>
           </div>
         )}
 
@@ -984,7 +1031,13 @@ export default function App() {
               const id = isRealData ? hour.time_epoch : hour.id;
 
               return (
-              <div key={id} className="min-w-[100px] snap-start bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-4 flex flex-col items-center justify-between shadow-lg hover:bg-white/10 transition-colors">
+              <motion.div 
+                key={id} 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, delay: idx * 0.05 }}
+                className="min-w-[100px] snap-start bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-4 flex flex-col items-center justify-between shadow-lg hover:bg-white/10 transition-colors"
+              >
                 <span className="text-blue-100 font-medium text-sm mb-3">{timeStr}</span>
                 <div className="scale-50 origin-center mb-1">
                    {renderWeatherIcon(code, isDay)}
@@ -992,8 +1045,85 @@ export default function App() {
                 <div className="font-bold text-xl text-white">
                   {temp}°
                 </div>
-              </div>
+              </motion.div>
             )})}
+          </div>
+        </div>
+
+        {/* Temperature Trend Area Chart */}
+        <div className="w-full mt-2 mb-6">
+          <div className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 sm:p-6 shadow-xl h-64 sm:h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={(weatherData?.forecast?.forecastday?.[0]?.hour || placeholderHourly).map((hour: any) => {
+                  const isRealData = !!hour.temp_c;
+                  const timeStr = isRealData ? new Date(hour.time).toLocaleTimeString('en-US', { hour: 'numeric' }) : hour.time.split(' ')[0] + hour.time.split(' ')[1]?.substring(0, 1).toLowerCase();
+                  return {
+                    time: timeStr,
+                    temp: isRealData ? Math.round(hour.temp_c) : hour.temp
+                  };
+              })}>
+                <defs>
+                  <linearGradient id="colorTemp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="time" stroke="#93C5FD" tick={{fill: '#93C5FD', fontSize: 12}} tickLine={false} axisLine={false} minTickGap={20} />
+                <YAxis hide domain={['dataMin - 2', 'dataMax + 2']} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', color: '#fff' }} 
+                  itemStyle={{ color: '#60A5FA', fontWeight: 'bold' }}
+                  labelStyle={{ color: '#93C5FD', marginBottom: '4px' }}
+                  formatter={(value: number) => [`${value}°`, 'Temp']}
+                />
+                <Area type="monotone" dataKey="temp" stroke="#60A5FA" strokeWidth={3} fillOpacity={1} fill="url(#colorTemp)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* 7-Day Temperature Trend Chart */}
+        <div className="w-full mt-6 mb-6">
+          <div className="flex items-center space-x-2 mb-6 px-2">
+            <Activity className="text-blue-300" size={24} />
+            <h3 className="font-display text-2xl font-semibold tracking-tight text-white drop-shadow-md">7-Day Temperature Trend</h3>
+          </div>
+          <div className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 sm:p-6 shadow-xl h-72 sm:h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={(weatherData?.forecast?.forecastday || placeholderForecast).slice(0, 7).map((day: any) => {
+                  const isRealData = !!day.day;
+                  const dateStr = isRealData 
+                    ? new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' })
+                    : day.date.split(',')[0];
+                  return {
+                    date: dateStr,
+                    maxTemp: isRealData ? Math.round(day.day.maxtemp_c) : day.maxTemp,
+                    minTemp: isRealData ? Math.round(day.day.mintemp_c) : day.minTemp
+                  };
+              })}>
+                <defs>
+                  <linearGradient id="colorMaxTemp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#F87171" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#F87171" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorMinTemp" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#60A5FA" stopOpacity={0.8}/>
+                    <stop offset="95%" stopColor="#60A5FA" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="date" stroke="#93C5FD" tick={{fill: '#93C5FD', fontSize: 12}} tickLine={false} axisLine={false} />
+                <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '12px', color: '#fff' }} 
+                  itemStyle={{ fontWeight: 'bold' }}
+                  labelStyle={{ color: '#93C5FD', marginBottom: '4px' }}
+                  formatter={(value: number, name: string) => [`${value}°`, name === 'maxTemp' ? 'High' : 'Low']}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
+                <Area type="monotone" dataKey="maxTemp" name="High" stroke="#F87171" strokeWidth={3} fillOpacity={1} fill="url(#colorMaxTemp)" />
+                <Area type="monotone" dataKey="minTemp" name="Low" stroke="#60A5FA" strokeWidth={3} fillOpacity={1} fill="url(#colorMinTemp)" />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -1021,7 +1151,14 @@ export default function App() {
               const barWidth = Math.max(5, ((maxTemp - minTemp) / 55) * 100);
 
               return (
-              <div key={id} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0 hover:bg-white/5 rounded-xl px-2 transition-colors">
+              <motion.div 
+                key={id} 
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                viewport={{ once: true, margin: "-50px" }}
+                transition={{ duration: 0.4 }}
+                className="flex items-center justify-between py-2 border-b border-white/5 last:border-0 hover:bg-white/5 rounded-xl px-2 transition-colors"
+              >
                 <div className="w-24 text-blue-100 font-medium text-sm">{dateStr}</div>
                 <div className="flex items-center gap-3 w-32">
                    <div className="scale-50 origin-left">
@@ -1039,7 +1176,7 @@ export default function App() {
                   </div>
                   <span className="text-white font-bold w-6">{maxTemp}°</span>
                 </div>
-              </div>
+              </motion.div>
             )})}
           </div>
         </div>
@@ -1052,35 +1189,52 @@ export default function App() {
           </div>
 
           <div className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-4 md:p-6 shadow-xl">
-            
-            {/* Tabs */}
-            <div className="flex overflow-x-auto hide-scrollbar gap-2 mb-6 pb-2">
-              {['Rain Map', 'Cloud Map', 'Wind Map', 'Hurricane Tracker'].map((tab) => (
-                <button 
-                  key={tab}
-                  onClick={() => setActiveMapTab(tab)}
-                  className={`px-6 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
-                    activeMapTab === tab 
-                      ? 'bg-blue-600 text-white shadow-lg' 
-                      : 'bg-white/5 text-blue-200/70 hover:bg-white/10 hover:text-white border border-white/5'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+               {/* Tabs and Controls */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-2 sm:pb-0">
+                {['Rain Map', 'Cloud Map', 'Wind Map', 'Hurricane Tracker'].map((tab) => (
+                  <button 
+                    key={tab}
+                    onClick={() => setActiveMapTab(tab)}
+                    className={`px-6 py-3 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer ${
+                      activeMapTab === tab 
+                        ? 'bg-blue-600 text-white shadow-lg' 
+                        : 'bg-white/5 text-blue-200/70 hover:bg-white/10 hover:text-white border border-white/5'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setIsMapExpanded(true)}
+                className="hidden sm:flex items-center gap-2 px-4 py-3 rounded-full text-sm font-medium bg-white/10 hover:bg-white/20 text-white border border-white/10 transition-colors whitespace-nowrap shrink-0"
+              >
+                <Maximize size={16} />
+                Expand Map
+              </button>
             </div>
 
             {/* Map Placeholder */}
-            <div className="w-full aspect-video md:aspect-[21/9] bg-[#020617] rounded-3xl relative overflow-hidden border border-white/5 flex items-center justify-center">
+            <div className="w-full aspect-video md:aspect-[21/9] bg-[#020617] rounded-3xl relative overflow-hidden border border-white/5 flex items-center justify-center group">
                {weatherData?.location?.lat && weatherData?.location?.lon ? (
-                 <iframe 
-                   key={`${weatherData.location.lat}-${weatherData.location.lon}-${activeMapTab}`}
-                   width="100%" 
-                   height="100%" 
-                   src={`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=km%2Fh&zoom=5&overlay=${activeMapTab === 'Rain Map' ? 'rain' : activeMapTab === 'Cloud Map' ? 'clouds' : activeMapTab === 'Wind Map' ? 'wind' : 'pressure'}&product=ecmwf&level=surface&lat=${weatherData.location.lat}&lon=${weatherData.location.lon}`}
-                   frameBorder="0"
-                   className="absolute inset-0 rounded-3xl"
-                 ></iframe>
+                 <>
+                   <iframe 
+                     key={`${weatherData.location.lat}-${weatherData.location.lon}-${activeMapTab}`}
+                     width="100%" 
+                     height="100%" 
+                     src={`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=km%2Fh&zoom=5&overlay=${activeMapTab === 'Rain Map' ? 'rain' : activeMapTab === 'Cloud Map' ? 'clouds' : activeMapTab === 'Wind Map' ? 'wind' : 'pressure'}&product=ecmwf&level=surface&lat=${weatherData.location.lat}&lon=${weatherData.location.lon}`}
+                     frameBorder="0"
+                     className="absolute inset-0 rounded-3xl"
+                   ></iframe>
+                   {/* Mobile Expand Overlay Button */}
+                   <button
+                     onClick={() => setIsMapExpanded(true)}
+                     className="sm:hidden absolute top-4 right-4 z-10 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center text-white shadow-lg"
+                   >
+                     <Maximize size={18} />
+                   </button>
+                 </>
                ) : (
                  <div className="flex flex-col items-center justify-center relative z-10 bg-black/40 backdrop-blur-md px-6 py-3 rounded-full border border-white/10 text-white/80 font-medium shadow-2xl">
                    <Loader2 size={18} className="animate-spin text-blue-400 mb-2" />
@@ -1088,9 +1242,58 @@ export default function App() {
                  </div>
                )}
             </div>
-
           </div>
         </div>
+
+        {/* Full-screen Map Modal */}
+        {isMapExpanded && weatherData?.location?.lat && weatherData?.location?.lon && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex flex-col p-4 md:p-8"
+          >
+            <div className="flex items-center justify-between mb-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+              <div className="flex items-center gap-3">
+                <MapIcon className="text-blue-400" size={24} />
+                <h3 className="text-xl font-bold text-white">Live {activeMapTab}</h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="hidden md:flex bg-black/40 rounded-full border border-white/10 p-1">
+                  {['Rain Map', 'Cloud Map', 'Wind Map', 'Hurricane Tracker'].map((tab) => (
+                    <button 
+                      key={tab}
+                      onClick={() => setActiveMapTab(tab)}
+                      className={`px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+                        activeMapTab === tab 
+                          ? 'bg-blue-600 text-white' 
+                          : 'text-white/60 hover:text-white'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setIsMapExpanded(false)}
+                  className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                >
+                  <Minimize size={20} />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 w-full bg-[#020617] rounded-[2rem] relative overflow-hidden border border-white/10 shadow-2xl">
+              <iframe 
+                key={`${weatherData.location.lat}-${weatherData.location.lon}-${activeMapTab}-fs`}
+                width="100%" 
+                height="100%" 
+                src={`https://embed.windy.com/embed.html?type=map&location=coordinates&metricRain=mm&metricTemp=%C2%B0C&metricWind=km%2Fh&zoom=5&overlay=${activeMapTab === 'Rain Map' ? 'rain' : activeMapTab === 'Cloud Map' ? 'clouds' : activeMapTab === 'Wind Map' ? 'wind' : 'pressure'}&product=ecmwf&level=surface&lat=${weatherData.location.lat}&lon=${weatherData.location.lon}`}
+                frameBorder="0"
+                className="absolute inset-0"
+              ></iframe>
+            </div>
+          </motion.div>
+        )}
 
         {/* AI Weather Assistant Chatbot */}
         <div className="w-full mt-8">
