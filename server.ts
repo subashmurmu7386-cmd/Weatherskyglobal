@@ -19,7 +19,9 @@ async function startServer() {
       }
       
       const apiKey = process.env.WEATHER_API_KEY || 'f6f975bfbd7e4d4c9ea72207260707';
-      const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(query)}&days=15&aqi=yes`;
+      // Do not URL-encode commas for GPS coordinates, WeatherAPI expects them raw
+      const safeQuery = encodeURIComponent(query.trim()).replace(/%2C/g, ',');
+      const url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${safeQuery}&days=15&aqi=yes`;
       
       const response = await fetch(url);
       if (!response.ok) {
@@ -37,7 +39,7 @@ async function startServer() {
   });
 
   // API Route for AI Recommendations
-  app.post('/api/recommendations', async (req, res) => {
+  app.post('/api/ai-insights', async (req, res) => {
     try {
       const { temperature, condition, rainChance, uvIndex, aqi, locationName } = req.body;
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY  });
