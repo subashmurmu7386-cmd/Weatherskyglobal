@@ -634,10 +634,17 @@ export default function App() {
 
   useEffect(() => {
     if (toastError) {
-      const timer = setTimeout(() => setToastError(null), 5000);
+      const timer = setTimeout(() => setToastError(null), 4000);
       return () => clearTimeout(timer);
     }
   }, [toastError]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   // Load favorite cities from LocalStorage ('favorite_cities')
   useEffect(() => {
@@ -757,7 +764,31 @@ export default function App() {
     }
 
     try {
-      const response = await fetch(`/api/weather?q=${encodeURIComponent(query.trim())}`);
+      let fetchUrl = '';
+      const trimmedQuery = query.trim();
+
+      if (trimmedQuery.startsWith('lat=') && trimmedQuery.includes('&lon=')) {
+        fetchUrl = `/api/weather?${trimmedQuery}`;
+      } else {
+        const coordMatch = trimmedQuery.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+        if (coordMatch) {
+          fetchUrl = `/api/weather?lat=${coordMatch[1]}&lon=${coordMatch[2]}`;
+        } else {
+          // SANITIZE LOCATION SEARCH QUERY:
+          // Strip out extra state/country suffix (e.g. extract "New Delhi" from "New Delhi, India")
+          // before sending to the backend API endpoint
+          let sanitizedLocation = trimmedQuery;
+          if (trimmedQuery.includes(',')) {
+            const parts = trimmedQuery.split(',').map(p => p.trim()).filter(Boolean);
+            if (parts.length > 0) {
+              sanitizedLocation = parts[0];
+            }
+          }
+          fetchUrl = `/api/weather?q=${encodeURIComponent(sanitizedLocation)}`;
+        }
+      }
+
+      const response = await fetch(fetchUrl);
       
       if (!response.ok) {
         const errJson = await response.json().catch(() => null);
@@ -928,7 +959,7 @@ export default function App() {
           if (!prev || Math.abs(latitude - prev.lat) > 0.01 || Math.abs(longitude - prev.lon) > 0.01) {
             lastGpsCoordsRef.current = { lat: latitude, lon: longitude };
             setGpsMode('live_gps');
-            fetchWeather(`${latitude},${longitude}`, true);
+            fetchWeather(`lat=${latitude.toFixed(4)}&lon=${longitude.toFixed(4)}`, true);
           } else {
             setGpsMode('live_gps');
           }
