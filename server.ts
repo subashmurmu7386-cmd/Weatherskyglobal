@@ -164,59 +164,86 @@ async function startServer() {
   // API Route for Weather proxy with enhanced location resolution & village fallback
   app.get('/api/weather', async (req, res) => {
     try {
-      const query = req.query.q as string;
+      let query = req.query.q as string;
+      const reqLat = req.query.lat as string;
+      const reqLon = req.query.lon as string;
+
+      // Format from lat and lon query params if provided by client GPS geolocation
+      if ((!query || !query.trim()) && reqLat && reqLon) {
+        query = `${reqLat.trim()},${reqLon.trim()}`;
+      }
+
       if (!query || query.trim().length === 0) {
-        return res.status(400).json({ error: 'Query parameter "q" is required' });
+        return res.status(400).json({ error: 'Query parameter "q" or "lat" and "lon" is required' });
       }
       
       const apiKey = process.env.WEATHER_API_KEY || 'f6f975bfbd7e4d4c9ea72207260707';
       const trimmedQuery = query.trim();
       const lowerQuery = trimmedQuery.toLowerCase();
       const cleanLowerQuery = lowerQuery.replace(/,\s*(india|usa|us|uk|canada|australia|state)?$/i, '').trim();
-      
-      let targetQuery = trimmedQuery;
 
-      // Resolve state / region names to their main capital city
-      if (STATE_CAPITAL_MAP[lowerQuery]) {
-        targetQuery = STATE_CAPITAL_MAP[lowerQuery];
-      } else if (STATE_CAPITAL_MAP[cleanLowerQuery]) {
-        targetQuery = STATE_CAPITAL_MAP[cleanLowerQuery];
+      // GPS Coordinates handling: format lat,lon according to WeatherAPI specification
+      const coordRegex = /^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/;
+      const coordMatch = trimmedQuery.match(coordRegex);
+      const isCoord = !!coordMatch;
+
+      let targetQuery = trimmedQuery;
+      let safeQuery = '';
+
+      if (isCoord && coordMatch) {
+        const latVal = parseFloat(coordMatch[1]).toFixed(4);
+        const lonVal = parseFloat(coordMatch[2]).toFixed(4);
+        // Correct specification for WeatherAPI coordinate query: q=lat,lon
+        safeQuery = `${latVal},${lonVal}`;
       } else {
-        for (const [key, capital] of Object.entries(STATE_CAPITAL_MAP)) {
-          if (
-            lowerQuery === key || 
-            lowerQuery === `${key} state` || 
-            lowerQuery === `state of ${key}` ||
-            cleanLowerQuery === key
-          ) {
-            targetQuery = capital;
-            break;
+        // Resolve state / region names to their main capital city
+        if (STATE_CAPITAL_MAP[lowerQuery]) {
+          targetQuery = STATE_CAPITAL_MAP[lowerQuery];
+        } else if (STATE_CAPITAL_MAP[cleanLowerQuery]) {
+          targetQuery = STATE_CAPITAL_MAP[cleanLowerQuery];
+        } else {
+          let mappedCapital = '';
+          for (const [key, capital] of Object.entries(STATE_CAPITAL_MAP)) {
+            if (
+              lowerQuery === key || 
+              lowerQuery === `${key} state` || 
+              lowerQuery === `state of ${key}` ||
+              cleanLowerQuery === key
+            ) {
+              mappedCapital = capital;
+              break;
+            }
+          }
+
+          if (mappedCapital) {
+            targetQuery = mappedCapital;
+          } else {
+            // SANITIZE LOCATION SEARCH QUERY:
+            // Strip out extra state/country suffix and search using primary city name
+            // (e.g. extract "New Delhi" from "New Delhi, India") before making API call.
+            if (trimmedQuery.includes(',')) {
+              const primaryCity = trimmedQuery.split(',')[0].trim();
+              if (primaryCity.length > 0) {
+                targetQuery = primaryCity;
+              }
+            }
           }
         }
-      }
-
-      const isCoord = /^-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(trimmedQuery);
-      let safeQuery = encodeURIComponent(targetQuery);
-      
-      if (isCoord) {
-        const parts = trimmedQuery.split(',');
-        const lat = parseFloat(parts[0]).toFixed(4);
-        const lon = parseFloat(parts[1]).toFixed(4);
-        safeQuery = `${lat},${lon}`;
+        safeQuery = encodeURIComponent(targetQuery);
       }
 
       // Try primary forecast query
       let url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${safeQuery}&days=15&aqi=yes&alerts=yes`;
       let response = await fetch(url);
 
-      // Attempt 1: If primary query failed, call WeatherAPI autocomplete search to find nearest village/town match
+      // Attempt 1: If primary query failed, call WeatherAPI autocomplete search to find nearest match
       if (!response.ok) {
+        const primaryCity = trimmedQuery.split(',')[0].trim();
         const searchCandidates = [
+          primaryCity,
           trimmedQuery,
           cleanLowerQuery,
-          `${trimmedQuery}, India`,
-          `${trimmedQuery}, Jharkhand`,
-          trimmedQuery.split(',')[0],
+          `${primaryCity}, India`,
         ];
 
         let foundMatchQuery: string | null = null;
@@ -245,7 +272,7 @@ async function startServer() {
         }
       }
 
-      // Attempt 2: Ultimate Fallback to nearest regional/district hub or default city if location is extremely remote
+      // Attempt 2: Ultimate Fallback to default city if location is not found
       if (!response.ok) {
         const defaultFallback = 'New Delhi, India';
         url = `https://api.weatherapi.com/v1/forecast.json?key=${apiKey}&q=${encodeURIComponent(defaultFallback)}&days=15&aqi=yes&alerts=yes`;
