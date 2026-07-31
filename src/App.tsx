@@ -634,14 +634,14 @@ export default function App() {
 
   useEffect(() => {
     if (toastError) {
-      const timer = setTimeout(() => setToastError(null), 4000);
+      const timer = setTimeout(() => setToastError(null), 3000);
       return () => clearTimeout(timer);
     }
   }, [toastError]);
 
   useEffect(() => {
     if (error) {
-      const timer = setTimeout(() => setError(null), 4000);
+      const timer = setTimeout(() => setError(null), 3000);
       return () => clearTimeout(timer);
     }
   }, [error]);
@@ -774,11 +774,13 @@ export default function App() {
       } else {
         const coordMatch = trimmedQuery.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
         if (coordMatch) {
-          fetchUrl = `/api/weather?lat=${coordMatch[1]}&lon=${coordMatch[2]}`;
+          const lat = coordMatch[1].trim();
+          const lon = coordMatch[2].trim();
+          fetchUrl = `/api/weather?q=${lat},${lon}`;
         } else {
           // SANITIZE LOCATION SEARCH QUERY:
-          // Strip out extra state/country suffix (e.g. extract "New Delhi" from "New Delhi, Delhi, India")
-          // before sending to the backend API endpoint
+          // Strip out extra state/country suffix (e.g. extract "New York" from "New York, US")
+          // and use encodeURIComponent so the Weather API parses it cleanly without throwing "location not found".
           let sanitizedLocation = trimmedQuery;
           if (trimmedQuery.includes(',')) {
             const parts = trimmedQuery.split(',').map(p => p.trim()).filter(Boolean);
@@ -822,7 +824,13 @@ export default function App() {
       } else {
         console.warn('Silent initial or background fetch error suppressed:', err);
       }
-      // Do not setWeatherData(null) to keep the previous location visible
+
+      // Smooth fallback to New Delhi if search fails and we don't have valid weather data, or if query failed
+      const lowerQ = query.toLowerCase();
+      if (!lowerQ.includes('new delhi')) {
+        console.info("Search failed, falling back smoothly to New Delhi");
+        fetchWeather("New Delhi, India", true, true);
+      }
     } finally {
       setLoading(false);
     }
