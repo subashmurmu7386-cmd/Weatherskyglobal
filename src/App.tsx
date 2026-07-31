@@ -737,12 +737,14 @@ export default function App() {
     }
   };
 
-  const fetchWeather = async (query: string, bypassCache = false) => {
+  const fetchWeather = async (query: string, bypassCache = false, isSilent = false) => {
     if (!query) return;
     setLoading(true);
     setError(null);
     setAiRecommendations([]);
-    setToastError(null);
+    if (!isSilent) {
+      setToastError(null);
+    }
     
     const cacheKey = `weather_${query.toLowerCase()}`;
     if (!bypassCache) {
@@ -775,7 +777,7 @@ export default function App() {
           fetchUrl = `/api/weather?lat=${coordMatch[1]}&lon=${coordMatch[2]}`;
         } else {
           // SANITIZE LOCATION SEARCH QUERY:
-          // Strip out extra state/country suffix (e.g. extract "New Delhi" from "New Delhi, India")
+          // Strip out extra state/country suffix (e.g. extract "New Delhi" from "New Delhi, Delhi, India")
           // before sending to the backend API endpoint
           let sanitizedLocation = trimmedQuery;
           if (trimmedQuery.includes(',')) {
@@ -812,14 +814,14 @@ export default function App() {
         logUserSearchData(currentUser, data.location.name, data.location.country);
       }
 
-
-
-
-      
       // Auto-trigger Gemini Recommendations
       generateAIRecommendations(data);
     } catch (err) {
-      setToastError(err instanceof Error ? err.message : 'Failed to fetch weather data');
+      if (!isSilent) {
+        setToastError(err instanceof Error ? err.message : 'Failed to fetch weather data');
+      } else {
+        console.warn('Silent initial or background fetch error suppressed:', err);
+      }
       // Do not setWeatherData(null) to keep the previous location visible
     } finally {
       setLoading(false);
@@ -926,15 +928,15 @@ export default function App() {
           const locQuery = (data.latitude && data.longitude)
             ? `${data.latitude},${data.longitude}`
             : `${data.city}, ${data.country_name || ''}`;
-          fetchWeather(locQuery, true);
+          fetchWeather(locQuery, true, silent);
         } else {
-          fetchWeather("New Delhi, India", true);
+          fetchWeather("New Delhi, India", true, silent);
         }
       } catch (e) {
         try {
-          fetchWeather("auto:ip", true);
+          fetchWeather("auto:ip", true, silent);
         } catch {
-          fetchWeather("New Delhi, India", true);
+          fetchWeather("New Delhi, India", true, silent);
         }
       }
     };
@@ -959,7 +961,7 @@ export default function App() {
           if (!prev || Math.abs(latitude - prev.lat) > 0.01 || Math.abs(longitude - prev.lon) > 0.01) {
             lastGpsCoordsRef.current = { lat: latitude, lon: longitude };
             setGpsMode('live_gps');
-            fetchWeather(`lat=${latitude.toFixed(4)}&lon=${longitude.toFixed(4)}`, true);
+            fetchWeather(`lat=${latitude.toFixed(4)}&lon=${longitude.toFixed(4)}`, true, silent);
           } else {
             setGpsMode('live_gps');
           }
@@ -995,7 +997,7 @@ export default function App() {
 
   useEffect(() => {
     // Immediately fetch initial default weather for instant UI rendering without waiting for GPS permissions
-    fetchWeather("New Delhi, India");
+    fetchWeather("New Delhi, India", false, true);
 
     // Silently start GPS or IP geolocation in the background to update to user's exact position once ready
     startGpsTracking(true);
