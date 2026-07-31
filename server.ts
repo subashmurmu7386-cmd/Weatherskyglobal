@@ -177,7 +177,7 @@ async function startServer() {
         return res.status(400).json({ error: 'Query parameter "q" or "lat" and "lon" is required' });
       }
       
-      const apiKey = process.env.WEATHER_API_KEY || 'f6f975bfbd7e4d4c9ea72207260707';
+      const apiKey = process.env.WEATHER_API_KEY || process.env.VITE_WEATHER_API_KEY || 'f6f975bfbd7e4d4c9ea72207260707';
       const trimmedQuery = query.trim();
       const lowerQuery = trimmedQuery.toLowerCase();
       const cleanLowerQuery = lowerQuery.replace(/,\s*(india|usa|us|uk|canada|australia|state)?$/i, '').trim();
@@ -305,7 +305,7 @@ async function startServer() {
   app.post('/api/weather-tips', async (req, res) => {
     try {
       const { temperature, condition, rainChance, uvIndex, aqi, locationName } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
       const getUvTip = (uv: number) => {
         if (uv >= 11) return "Extreme UV Index! Apply SPF 50+ broad-spectrum sunscreen, wear UV-blocking sunglasses & a wide-brim hat, and avoid sun exposure between 10 AM - 4 PM.";
@@ -346,7 +346,7 @@ Provide a concise bulleted response in simple language covering:
 Only provide bullet points. Make each point clear, friendly, concise, and highly actionable.`;
 
       let responseText = "";
-      const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
       for (const modelName of modelsToTry) {
         try {
           const response = await ai.models.generateContent({
@@ -374,7 +374,7 @@ Only provide bullet points. Make each point clear, friendly, concise, and highly
   app.post('/api/chat', async (req, res) => {
     try {
       const { history, message, locationData } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
       const city = locationData?.name || 'your area';
       const temp = locationData?.temp ? `${locationData.temp}°C` : 'the current temperature';
       const condition = locationData?.condition || 'the current conditions';
@@ -404,7 +404,7 @@ Only provide bullet points. Make each point clear, friendly, concise, and highly
       contents.push({ role: 'user', parts: [{ text: message }] });
 
       let responseText = "";
-      const modelsToTry = ['gemini-3.6-flash', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
       for (const modelName of modelsToTry) {
         try {
           const response = await ai.models.generateContent({
