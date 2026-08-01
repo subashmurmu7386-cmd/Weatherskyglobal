@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /**
  * @license
  * SPDX-License-Identifier: Apache-2.0
@@ -15,10 +16,29 @@ import { WeatherHabitsSection } from './components/WeatherHabitsSection';
 import { AmbientSoundPlayer } from './components/AmbientSoundPlayer';
 import { WindCompassNeedle, getWindDegree } from './components/WindCompassNeedle';
 import { AnimatedValue } from './components/AnimatedValue';
+import { PwaInstallModal } from './components/PwaInstallModal';
+import { LocationDetailsModal } from './components/LocationDetailsModal';
+import { formatLocation, formatLocationString } from './utils/formatLocation';
 import firebaseConfig from '../firebase-applet-config.json';
 
-export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const getFirebaseConfig = () => {
+  if (firebaseConfig && firebaseConfig.projectId && firebaseConfig.projectId !== '') {
+    return firebaseConfig;
+  }
+  return {
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "gen-lang-client-0783592595",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:587189829912:web:e179b48da25725a4bd5e6d",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCT88ERotkRmNdxDq3DbRUkb6C5QyyxbeQ",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "gen-lang-client-0783592595.firebaseapp.com",
+    firestoreDatabaseId: import.meta.env.VITE_FIREBASE_DATABASE_ID || "ai-studio-weatherskyglobal-bf333a00-1a41-4123-82c2-896e0f29cd8d",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "gen-lang-client-0783592595.firebasestorage.app",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "587189829912",
+  };
+};
+
+const activeFirebaseConfig = getFirebaseConfig();
+export const app = initializeApp(activeFirebaseConfig);
+export const db = getFirestore(app, activeFirebaseConfig.firestoreDatabaseId || activeFirebaseConfig.projectId);
 
 // Securely proxying WeatherAPI calls via our Express server-side endpoints
 // to prevent client-side API key exposure and eliminate potential CORS blocks.
@@ -89,7 +109,7 @@ interface WeatherData {
   };
 }
 
-const placeholderForecast = Array.from({ length: 15 }).map((_, i) => {
+const placeholderForecast = Array.from({ length: 3 }).map((_, i) => {
   const date = new Date();
   date.setDate(date.getDate() + i + 1);
   const conditions = [1000, 1003, 1183, 1273, 1114];
@@ -434,6 +454,8 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [aiRecommendations, setAiRecommendations] = useState<string[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
+  const [dailyInsight, setDailyInsight] = useState<string | null>(null);
+  const [insightLoading, setInsightLoading] = useState(false);
   const [savedLocations, setSavedLocations] = useState<{ id: string, name: string }[]>([]);
   const [toastError, setToastError] = useState<string | null>(null);
   const [histChartMode, setHistChartMode] = useState<'seasonal' | 'daily'>('seasonal');
@@ -442,6 +464,18 @@ export default function App() {
   const [userName, setUserName] = useState<string>('');
   const [showNameModal, setShowNameModal] = useState<boolean>(false);
   const [nameInput, setNameInput] = useState<string>('');
+  const [showPwaModal, setShowPwaModal] = useState<boolean>(false);
+  const [showLocationModal, setShowLocationModal] = useState<boolean>(false);
+  
+  // Auto-dismiss Toast Error Modal after 3 seconds
+  useEffect(() => {
+    if (toastError) {
+      const timer = setTimeout(() => {
+        setToastError(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastError]);
   
   // Gamification & Alerts State
   
@@ -524,13 +558,19 @@ export default function App() {
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          setDeferredPrompt(null);
+        } else {
+          setShowPwaModal(true);
+        }
+      } catch (err) {
+        setShowPwaModal(true);
       }
     } else {
-      setToastError("PWA App: To install on your device, tap 'Share' > 'Add to Home Screen' on mobile/iOS or click the install icon in your browser address bar.");
+      setShowPwaModal(true);
     }
   };
 
@@ -676,7 +716,7 @@ export default function App() {
 
   const toggleFavoriteCity = () => {
     if (!weatherData?.location?.name) return;
-    const currentLocName = `${weatherData.location.name}${weatherData.location.region ? `, ${weatherData.location.region}` : ''}${weatherData.location.country ? `, ${weatherData.location.country}` : ''}`;
+    const currentLocName = formatLocation(weatherData.location.name, weatherData.location.region, weatherData.location.country);
     
     let updated: { id: string; name: string }[];
     if (isCurrentFavorite) {
@@ -816,8 +856,9 @@ export default function App() {
         logUserSearchData(currentUser, data.location.name, data.location.country);
       }
 
-      // Auto-trigger Gemini Recommendations
+      // Auto-trigger Gemini Recommendations & Daily Weather Insight
       generateAIRecommendations(data);
+      fetchDailyInsight(data);
     } catch (err) {
       if (!isSilent) {
         setToastError(err instanceof Error ? err.message : 'Failed to fetch weather data');
@@ -894,6 +935,49 @@ export default function App() {
       ]);
     } finally {
       setAiLoading(false);
+    }
+  };
+
+  const fetchDailyInsight = async (data: WeatherData) => {
+    setInsightLoading(true);
+    const cleanLocName = formatLocation(data.location.name, data.location.region, data.location.country);
+    try {
+      const todayForecast = data.forecast?.forecastday?.[0]?.day;
+      const response = await fetch('/api/daily-insight', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          locationName: cleanLocName,
+          temperature: data.current.temp_c,
+          condition: data.current.condition.text,
+          humidity: data.current.humidity,
+          windSpeed: data.current.wind_kph,
+          maxTemp: todayForecast?.maxtemp_c,
+          minTemp: todayForecast?.mintemp_c,
+          timePhase: data.current.is_day ? 'day' : 'night'
+        }),
+      });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.insight) {
+          setDailyInsight(result.insight);
+        }
+      } else {
+        const todayForecast = data.forecast?.forecastday?.[0]?.day;
+        const hi = todayForecast ? Math.round(todayForecast.maxtemp_c) : Math.round(data.current.temp_c + 3);
+        const lo = todayForecast ? Math.round(todayForecast.mintemp_c) : Math.round(data.current.temp_c - 4);
+        setDailyInsight(`As today's ${data.current.condition.text.toLowerCase()} atmosphere unfolds over ${cleanLocName}, temperatures shift between a crisp ${lo}°C and a warm ${hi}°C. Soft ${data.current.wind_kph} km/h breezes whisper through ${data.current.humidity}% humidity, shaping a serene climate rhythm.`);
+      }
+    } catch (error) {
+      console.warn('Using local daily insight fallback:', error);
+      const todayForecast = data.forecast?.forecastday?.[0]?.day;
+      const hi = todayForecast ? Math.round(todayForecast.maxtemp_c) : Math.round(data.current.temp_c + 3);
+      const lo = todayForecast ? Math.round(todayForecast.mintemp_c) : Math.round(data.current.temp_c - 4);
+      setDailyInsight(`As today's ${data.current.condition.text.toLowerCase()} atmosphere unfolds over ${cleanLocName}, temperatures shift between a crisp ${lo}°C and a warm ${hi}°C. Soft ${data.current.wind_kph} km/h breezes whisper through ${data.current.humidity}% humidity, shaping a serene climate rhythm.`);
+    } finally {
+      setInsightLoading(false);
     }
   };
 
@@ -1720,13 +1804,16 @@ export default function App() {
                         <Search className="w-3 h-3 text-blue-400" /> Live Suggestions
                      </h4>
                      <ul className="space-y-1">
-                        {suggestions.map((item, idx) => (
+                        {suggestions.map((item, idx) => {
+                           const cleanLocation = formatLocation(item.name, item.region, item.country);
+                           const subtitle = cleanLocation.includes(',') ? cleanLocation.split(',').slice(1).join(',').trim() : (item.country || '');
+                           return (
                            <li key={idx}>
                               <button
                                 type="button"
                                 onMouseDown={() => {
                                   const target = item.query || item.name;
-                                  setSearchQuery(item.name);
+                                  setSearchQuery(cleanLocation);
                                   setShowSuggestions(false);
                                   fetchWeather(target, true);
                                 }}
@@ -1736,11 +1823,12 @@ export default function App() {
                                     <MapPin className="w-3.5 h-3.5 text-blue-400 shrink-0" /> {item.name}
                                  </span>
                                  <span className="text-[10px] sm:text-xs text-white/50 truncate max-w-[130px] sm:max-w-[200px]">
-                                    {[item.region, item.country].filter(Boolean).join(', ')}
+                                    {subtitle}
                                  </span>
                               </button>
                            </li>
-                        ))}
+                           );
+                        })}
                      </ul>
                   </div>
                 )}
@@ -1780,7 +1868,7 @@ export default function App() {
                                  }} 
                                  className="w-full text-left px-2.5 py-1 text-xs sm:text-sm text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors flex items-center gap-2 cursor-pointer"
                                >
-                                  <Heart className="w-3 h-3 text-red-400 shrink-0" /> {loc.name}
+                                  <Heart className="w-3 h-3 text-red-400 shrink-0" /> {formatLocationString(loc.name)}
                                </button>
                             </li>
                          )) : (
@@ -1803,7 +1891,7 @@ export default function App() {
                 className="flex items-center gap-2 px-4 py-2 bg-black/30 backdrop-blur-md border border-white/20 rounded-xl text-sm font-medium hover:bg-black/50 transition-colors whitespace-nowrap cursor-pointer shadow-sm group"
               >
                 <MapPin size={14} className="text-blue-300 group-hover:text-white transition-colors" />
-                {loc.name.split(',')[0]} {/* Show just city name for brevity */}
+                {formatLocationString(loc.name)}
               </button>
             ))}
           </div>
@@ -1835,7 +1923,7 @@ export default function App() {
         </div>
 
         {/* Cinematic Floating Island Hero Canvas */}
-        <HeroCanvas weatherData={weatherData} activeContext={activeContext} loading={loading} onLocate={handleLocation} userName={userName} enableAnimations={enableAnimations} isFavorite={isCurrentFavorite} onToggleFavorite={toggleFavoriteCity} />
+        <HeroCanvas weatherData={weatherData} activeContext={activeContext} loading={loading} onLocate={handleLocation} userName={userName} enableAnimations={enableAnimations} isFavorite={isCurrentFavorite} onToggleFavorite={toggleFavoriteCity} onOpenLocationDetails={() => setShowLocationModal(true)} />
         
         {/* Advanced Health & Environment Metrics */}
         {weatherData && (
@@ -1994,6 +2082,75 @@ export default function App() {
 
         {/* Weather-Based Daily Habits Section */}
         <WeatherHabitsSection weatherData={weatherData} userName={userName} />
+
+        {/* Daily Weather Insight Card */}
+        <div className="w-full mt-6">
+          <div className="bg-gradient-to-r from-slate-900/85 via-indigo-950/70 to-slate-900/85 backdrop-blur-xl border border-cyan-500/25 rounded-[2.2rem] p-6 sm:p-8 shadow-2xl relative overflow-hidden group hover:border-cyan-400/40 transition-all">
+            {/* Ambient decorative bar */}
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 opacity-80"></div>
+            
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-white/10">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-2xl bg-cyan-500/20 border border-cyan-400/30 flex items-center justify-center shrink-0 shadow-inner">
+                  <Sparkles className="text-cyan-300 animate-pulse" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-white drop-shadow-md">
+                    Daily Weather Insight
+                  </h3>
+                  <p className="text-xs text-cyan-200/70 font-medium">
+                    Poetic climate shift & atmospheric rhythm • Powered by Gemini AI
+                  </p>
+                </div>
+              </div>
+
+              {weatherData?.location && (
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <button
+                    onClick={() => weatherData && fetchDailyInsight(weatherData)}
+                    disabled={insightLoading}
+                    className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 text-xs font-semibold text-cyan-200 hover:text-white flex items-center gap-1.5 transition-all shadow-sm active:scale-95 disabled:opacity-50 cursor-pointer"
+                    title="Regenerate daily climate insight"
+                  >
+                    <Clock size={13} className={insightLoading ? "animate-spin text-cyan-300" : "text-cyan-300"} />
+                    <span>{insightLoading ? "Refreshing..." : "Refresh Insight"}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {insightLoading ? (
+              <div className="flex items-center space-x-3 text-cyan-200/70 py-6 px-2">
+                <Loader2 size={20} className="animate-spin text-cyan-400" />
+                <span className="text-sm font-medium">Crafting a poetic climate summary for {weatherData?.location?.name || 'your area'}...</span>
+              </div>
+            ) : dailyInsight ? (
+              <div className="relative pl-4 sm:pl-6 border-l-2 border-cyan-400/60 my-2">
+                <p className="text-base sm:text-lg text-cyan-50/95 font-medium leading-relaxed italic drop-shadow-sm">
+                  "{dailyInsight}"
+                </p>
+                {weatherData?.current && (
+                  <div className="flex items-center gap-2.5 mt-4 flex-wrap text-xs text-blue-200/80 font-semibold">
+                    <span className="px-3 py-1 rounded-full bg-cyan-500/15 border border-cyan-400/20 text-cyan-200 flex items-center gap-1.5">
+                      <Thermometer size={13} className="text-cyan-300" />
+                      {Math.round(weatherData.current.temp_c)}°C ({weatherData.current.condition.text})
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-blue-500/15 border border-blue-400/20 text-blue-200 flex items-center gap-1.5">
+                      <Wind size={13} className="text-blue-300" />
+                      {weatherData.current.wind_kph} km/h Wind
+                    </span>
+                    <span className="px-3 py-1 rounded-full bg-indigo-500/15 border border-indigo-400/20 text-indigo-200 flex items-center gap-1.5">
+                      <Droplets size={13} className="text-indigo-300" />
+                      {weatherData.current.humidity}% Humidity
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="text-cyan-200/50 text-sm italic py-4">Generating daily climate insight...</p>
+            )}
+          </div>
+        </div>
 
         {/* Hourly Forecast Section */}
         <div className="w-full mt-6">
@@ -2581,7 +2738,7 @@ export default function App() {
           </div>
           
           <div className="w-full bg-white/5 backdrop-blur-xl border border-white/10 rounded-[2rem] p-6 shadow-xl flex flex-col gap-4">
-            {(weatherData?.forecast?.forecastday || placeholderForecast).map((day: any) => {
+            {(weatherData?.forecast?.forecastday ? weatherData.forecast.forecastday.slice(0, 3) : placeholderForecast).map((day: any) => {
               const isRealData = !!day.day;
               const dateStr = isRealData 
                 ? new Date(day.date).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
@@ -3309,6 +3466,24 @@ export default function App() {
           <span className="text-xs mt-1 opacity-60">Adsterra Banner Slot</span>
         </div>
       </div>
+
+      {/* PWA Installation Modal */}
+      <PwaInstallModal
+        isOpen={showPwaModal}
+        onClose={() => setShowPwaModal(false)}
+        deferredPrompt={deferredPrompt}
+        onNativeInstall={() => {
+          handleInstallClick();
+          setShowPwaModal(false);
+        }}
+      />
+
+      {/* Location Details Modal */}
+      <LocationDetailsModal
+        isOpen={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        location={weatherData?.location}
+      />
 
       </div>
     </div>
