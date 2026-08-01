@@ -8,7 +8,7 @@ interface AdsterraBannerProps {
 
 export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({
   className = '',
-  bannerKey = import.meta.env.VITE_ADSTERRA_BANNER_KEY || '8f7e6d5c4b3a2109',
+  bannerKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADSTERRA_BANNER_KEY) || '8f7e6d5c4b3a2109',
   format = 'banner300x250'
 }) => {
   const bannerRef = useRef<HTMLDivElement>(null);

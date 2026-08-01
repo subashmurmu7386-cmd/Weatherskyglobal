@@ -7,7 +7,7 @@ interface AdsterraNativeProps {
 
 export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
   className = '',
-  adKey = import.meta.env.VITE_ADSTERRA_NATIVE_KEY || '1a2b3c4d5e6f7g8h'
+  adKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADSTERRA_NATIVE_KEY) || '1a2b3c4d5e6f7g8h'
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef<boolean>(false);
