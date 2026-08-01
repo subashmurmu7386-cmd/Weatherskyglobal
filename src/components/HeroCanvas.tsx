@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Loader2, SearchX, MapPin, CloudRain, CloudDrizzle, Wind, AlertTriangle, Sun, Moon, Droplets, CloudLightning, Snowflake, Cloud, Heart } from 'lucide-react';
+import { Loader2, SearchX, MapPin, CloudRain, CloudDrizzle, Wind, AlertTriangle, Sun, Moon, Droplets, CloudLightning, Snowflake, Cloud, Heart, Info } from 'lucide-react';
 import { motion, Variants } from 'motion/react';
+import { formatLocation } from '../utils/formatLocation';
 
 interface HeroCanvasProps {
   weatherData?: any; 
@@ -11,9 +12,10 @@ interface HeroCanvasProps {
   enableAnimations?: boolean;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
+  onOpenLocationDetails?: () => void;
 }
 
-export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeContext, loading, onLocate, userName, enableAnimations = true, isFavorite = false, onToggleFavorite }) => {
+export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeContext, loading, onLocate, userName, enableAnimations = true, isFavorite = false, onToggleFavorite, onOpenLocationDetails }) => {
   // Safe weather fallback object if weatherData is loading or not yet set to guarantee instant startup
   const displayData = weatherData || {
     location: { name: 'New Delhi', region: 'Delhi', country: 'India', localtime: '2026-07-29 12:00' },
@@ -136,8 +138,8 @@ export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeConte
          }
        `}</style>
 
-       {/* Background Environment Layers - Sun/Moon pushed to top-right to avoid city text overlap */}
-       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+       {/* Background Environment Layers - Sun/Moon positioned in exact TOP LEFT corner strictly within hero card boundaries */}
+       <div className="absolute inset-0 overflow-hidden pointer-events-none z-0 rounded-[2.5rem]">
           <WeatherLayers category={category} timePhase={timePhase} enableAnimations={enableAnimations} />
        </div>
 
@@ -150,7 +152,7 @@ export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeConte
        )}
 
        {/* Center Weather Widget with semi-transparent backdrop for 100% animated background visibility */}
-       <div className="z-40 w-full max-w-5xl flex flex-col md:flex-row items-center justify-between gap-6 md:gap-8 mt-2">
+       <div className="z-40 w-full max-w-5xl flex flex-col md:flex-row items-center md:items-center justify-between gap-6 md:gap-8 mt-12 md:mt-14 pt-6 md:pt-8">
           {/* Location & Conditions Semi-Transparent Glassmorphic Container with Framer-Motion Staggered Entrance */}
           <motion.div 
             key={`${displayName}-${displayData.location.localtime}-${displayData.current.temp_c}`}
@@ -161,9 +163,15 @@ export const HeroCanvas: React.FC<HeroCanvasProps> = ({ weatherData, activeConte
             style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', background: 'rgba(0, 0, 0, 0.25)' }}
           >
              <motion.div variants={statsItemVariants} className="text-white font-bold text-xl md:text-2xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.85)] flex items-start justify-between w-full gap-3">
-                <span className="leading-tight text-white font-display tracking-tight break-words flex-grow pr-4 sm:pr-6">
-                   {displayName}{displayData.location.region ? `, ${displayData.location.region}` : ''}{displayData.location.country ? `, ${displayData.location.country}` : ''}
-                </span>
+                <button
+                   type="button"
+                   onClick={onOpenLocationDetails}
+                   title="Click to view elevation, coordinates & timezone details"
+                   className="leading-tight text-white font-display tracking-tight break-words flex-grow pr-2 text-left hover:text-cyan-200 transition-colors cursor-pointer group/loc flex items-center gap-2"
+                >
+                   <span>{formatLocation(displayName, displayData.location.region, displayData.location.country)}</span>
+                   <Info size={18} className="text-cyan-300/80 group-hover/loc:text-cyan-200 shrink-0 opacity-80 group-hover/loc:scale-110 transition-all" />
+                </button>
                 {onToggleFavorite && (
                   <button
                     type="button"
@@ -274,12 +282,12 @@ const getTimeGradient = (phase: string, category: string) => {
 const WeatherLayers = ({ category, timePhase, enableAnimations }: { category: string, timePhase: string, enableAnimations?: boolean }) => {
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-[2.5rem]">
-       {/* Sun & Rainbow for clear day - Positioned top-right so it stays behind open space, clear of city text */}
+       {/* Sun & Rainbow for clear day - Positioned exact TOP LEFT corner strictly inside hero card boundaries */}
        {(timePhase === 'day' || timePhase === 'sunrise' || timePhase === 'sunset') && category !== 'storm' && category !== 'rain' && category !== 'fog' && (
          <>
-           <div className={`absolute top-[6%] right-[8%] md:right-[14%] w-28 h-28 md:w-36 md:h-36 bg-[#FFD700] rounded-full ${enableAnimations ? 'animate-sun-glow' : ''} z-0 pointer-events-none opacity-90`}></div>
-           {/* Rainbow arc */}
-           <div className="absolute top-[5%] right-[-10%] w-[550px] h-[550px] rounded-full border-[35px] border-transparent border-t-[rgba(255,0,0,0.2)] border-r-[rgba(255,165,0,0.2)] border-b-[rgba(255,255,0,0.2)] opacity-60 mix-blend-screen filter blur-[8px] transform rotate-[-45deg] z-0 pointer-events-none"></div>
+           <div className={`absolute top-[5%] left-[5%] md:top-[6%] md:left-[6%] w-28 h-28 md:w-36 md:h-36 bg-[#FFD700] rounded-full ${enableAnimations ? 'animate-sun-glow' : ''} z-0 pointer-events-none opacity-90`}></div>
+           {/* Rainbow arc on left */}
+           <div className="absolute top-[5%] left-[-15%] md:left-[-10%] w-[550px] h-[550px] rounded-full border-[35px] border-transparent border-t-[rgba(255,0,0,0.25)] border-l-[rgba(255,165,0,0.25)] border-b-[rgba(255,255,0,0.25)] opacity-60 mix-blend-screen filter blur-[8px] transform rotate-[45deg] z-0 pointer-events-none"></div>
            {/* Falling Autumn Leaves */}
            {enableAnimations && Array.from({length: 8}).map((_, i) => (
              <div key={i} className="absolute w-4 h-4 bg-[#e76f51] rounded-tl-full rounded-br-full animate-fall-leaf opacity-80" style={{
@@ -292,9 +300,9 @@ const WeatherLayers = ({ category, timePhase, enableAnimations }: { category: st
          </>
        )}
 
-       {/* Moon for night - Positioned top-right */}
+       {/* Moon for night - Positioned exact TOP LEFT corner strictly inside hero card boundaries */}
        {timePhase === 'night' && category !== 'storm' && category !== 'rain' && category !== 'fog' && (
-         <div className={`absolute top-[6%] right-[10%] md:right-[16%] w-24 h-24 md:w-32 md:h-32 bg-[#f8fafc] rounded-full ${enableAnimations ? 'animate-moon-glow' : ''} z-0 flex items-center justify-center overflow-hidden pointer-events-none`}>
+         <div className={`absolute top-[5%] left-[5%] md:top-[6%] md:left-[6%] w-24 h-24 md:w-32 md:h-32 bg-[#f8fafc] rounded-full ${enableAnimations ? 'animate-moon-glow' : ''} z-0 flex items-center justify-center overflow-hidden pointer-events-none`}>
             {/* Crisp craters for the moon */}
             <div className="absolute top-4 left-5 w-5 h-5 md:w-6 md:h-6 bg-[#cbd5e1] rounded-full"></div>
             <div className="absolute bottom-5 right-6 w-8 h-8 md:w-10 md:h-10 bg-[#cbd5e1] rounded-full"></div>
