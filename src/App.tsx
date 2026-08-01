@@ -487,6 +487,9 @@ export default function App() {
   const [chatLoading, setChatLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isChatSidebarOpen, setIsChatSidebarOpen] = useState(false);
+  const speechRecognitionRef = useRef<any>(null);
+  const spokenTextRef = useRef<string>('');
+  const activeVoiceTargetRef = useRef<'chat' | 'search'>('chat');
   
   // Autocomplete Suggestions State
   const [suggestions, setSuggestions] = useState<{ id?: number; name: string; region: string; country: string; query: string }[]>([]);
@@ -639,8 +642,11 @@ export default function App() {
     });
   };
 
-  const toggleListen = () => {
+  const toggleListen = (target: 'chat' | 'search' = 'chat') => {
     if (isListening) {
+      if (speechRecognitionRef.current) {
+        try { speechRecognitionRef.current.stop(); } catch (e) {}
+      }
       setIsListening(false);
       return;
     }
@@ -651,25 +657,69 @@ export default function App() {
       return;
     }
     
-    const recognition = new SpeechRecognitionAPI();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setChatInput(prev => prev + (prev ? ' ' : '') + transcript);
-    };
-    recognition.onerror = (event: any) => {
-      console.error('Speech recognition error', event.error);
-      if (event.error === 'not-allowed') {
-        setToastError("Microphone access was denied. Please allow microphone permissions to use voice chat.");
-      }
+    try {
+      activeVoiceTargetRef.current = target;
+      spokenTextRef.current = '';
+      
+      const recognition = new SpeechRecognitionAPI();
+      speechRecognitionRef.current = recognition;
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      
+      recognition.onstart = () => {
+        setIsListening(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript;
+          } else {
+            interimTranscript += event.results[i][0].transcript;
+          }
+        }
+
+        const currentSpeechText = (finalTranscript || interimTranscript).trim();
+        if (currentSpeechText) {
+          spokenTextRef.current = currentSpeechText;
+          if (activeVoiceTargetRef.current === 'search') {
+            setSearchQuery(currentSpeechText);
+          } else {
+            setChatInput(currentSpeechText);
+          }
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error);
+        if (event.error === 'not-allowed') {
+          setToastError("Microphone access was denied. Please allow microphone permissions to use voice input.");
+        }
+        setIsListening(false);
+      };
+
+      recognition.onend = () => {
+        setIsListening(false);
+        const autoSubmitText = spokenTextRef.current.trim();
+        if (autoSubmitText) {
+          if (activeVoiceTargetRef.current === 'search') {
+            handleSearch();
+          } else {
+            handleChatSend(autoSubmitText);
+          }
+          spokenTextRef.current = '';
+        }
+      };
+
+      recognition.start();
+    } catch (err) {
+      console.error('Error starting speech recognition:', err);
       setIsListening(false);
-    };
-    recognition.onend = () => setIsListening(false);
-    
-    recognition.start();
+    }
   };
 
   useEffect(() => {
@@ -1533,10 +1583,10 @@ export default function App() {
   const hasClouds = conditionText.includes('cloud') || conditionText.includes('overcast') || conditionText.includes('mist') || conditionText.includes('fog');
   const hasStorm = conditionText.includes('rain') || conditionText.includes('storm') || conditionText.includes('thunder') || conditionText.includes('drizzle');
 
-  const handleChatSend = async () => {
-    if (!chatInput.trim() || chatLoading) return;
+  const handleChatSend = async (overrideMessage?: string) => {
+    const userMessage = (overrideMessage !== undefined ? overrideMessage : chatInput).trim();
+    if (!userMessage || chatLoading) return;
     
-    const userMessage = chatInput.trim();
     setChatInput('');
     const newHistory: { role: 'user' | 'assistant', text: string }[] = [...chatHistory, { role: 'user', text: userMessage }];
     updateCurrentSession(newHistory);
@@ -1551,9 +1601,30 @@ export default function App() {
           history: chatHistory.map(msg => ({ role: msg.role, text: msg.text })),
           locationData: weatherData ? {
             name: weatherData.location.name,
+            region: weatherData.location.region,
+            country: weatherData.location.country,
             temp: weatherData.current.temp_c,
+            feelslike: weatherData.current.feelslike_c,
             condition: weatherData.current.condition.text,
-            time: weatherData.location.localtime
+            humidity: weatherData.current.humidity,
+            wind_kph: weatherData.current.wind_kph,
+            wind_dir: weatherData.current.wind_dir,
+            uv: weatherData.current.uv,
+            air_quality: weatherData.current.air_quality ? {
+              aqi: (weatherData.current.air_quality as any)['us-epa-index'],
+              pm2_5: Math.round((weatherData.current.air_quality as any).pm2_5 || 0),
+              pm10: Math.round((weatherData.current.air_quality as any).pm10 || 0)
+            } : null,
+            rainChance: weatherData.forecast?.forecastday?.[0]?.day?.daily_chance_of_rain || 0,
+            maxTemp: weatherData.forecast?.forecastday?.[0]?.day?.maxtemp_c,
+            minTemp: weatherData.forecast?.forecastday?.[0]?.day?.mintemp_c,
+            time: weatherData.location.localtime,
+            hourlyForecast: weatherData.forecast?.forecastday?.[0]?.hour?.map((h: any) => ({
+              time: h.time.split(' ')[1],
+              temp: h.temp_c,
+              condition: h.condition.text,
+              chance_of_rain: h.chance_of_rain
+            })).filter((_: any, idx: number) => idx % 3 === 0)
           } : null
         }),
       });
@@ -1566,7 +1637,7 @@ export default function App() {
       }
     } catch (err) {
       console.error(err);
-      updateCurrentSession([...newHistory, { role: 'assistant', text: "Sorry, I'm having trouble connecting right now." }]);
+      updateCurrentSession([...newHistory, { role: 'assistant', text: "I apologize, but I had trouble reaching the weather service. Please try again in a moment!" }]);
     } finally {
       setChatLoading(false);
     }
@@ -1771,9 +1842,9 @@ export default function App() {
              <div className="absolute inset-y-1 right-1 sm:inset-y-1.5 sm:right-1.5 flex items-center gap-1 sm:gap-1.5 z-10">
                 <button 
                   type="button"
-                  onClick={toggleListen}
+                  onClick={() => toggleListen('search')}
                   title="Voice Search"
-                  className={`p-1.5 sm:px-2.5 sm:py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl flex items-center justify-center transition-colors shadow-sm cursor-pointer backdrop-blur-sm ${isListening ? 'text-red-400 border-red-400/50 animate-pulse' : 'text-white'}`}
+                  className={`p-1.5 sm:px-2.5 sm:py-1.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl flex items-center justify-center transition-colors shadow-sm cursor-pointer backdrop-blur-sm ${isListening && activeVoiceTargetRef.current === 'search' ? 'text-red-400 border-red-400/50 animate-pulse' : 'text-white'}`}
                 >
                    <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
@@ -3017,23 +3088,60 @@ export default function App() {
                  )}
                </div>
 
+                {/* Quick Assistant Prompt Chips */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-2 mb-2 hide-scrollbar shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleChatSend("Will it rain or is monsoon active here today?")}
+                    disabled={chatLoading}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-blue-500/20 border border-white/10 hover:border-blue-400/40 rounded-full text-xs text-blue-200 transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>🌧️</span> Rain & Monsoon
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChatSend("What should I wear today based on current weather?")}
+                    disabled={chatLoading}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-blue-500/20 border border-white/10 hover:border-blue-400/40 rounded-full text-xs text-blue-200 transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>👔</span> Outfit Advice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChatSend("Is it suitable for outdoor travel or a picnic right now?")}
+                    disabled={chatLoading}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-blue-500/20 border border-white/10 hover:border-blue-400/40 rounded-full text-xs text-blue-200 transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>✈️</span> Outdoor & Travel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleChatSend("What is the UV index & sunscreen advice for today?")}
+                    disabled={chatLoading}
+                    className="px-3 py-1.5 bg-white/5 hover:bg-blue-500/20 border border-white/10 hover:border-blue-400/40 rounded-full text-xs text-blue-200 transition-all whitespace-nowrap flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <span>🧴</span> UV & Skincare
+                  </button>
+                </div>
+
                <div className="flex items-center gap-2 shrink-0 bg-black/20 border border-white/10 rounded-xl p-1.5 pl-4">
                  <input
                    type="text"
-                   placeholder="Ask about the weather, travel tips, or clothing..."
+                   placeholder={isListening && activeVoiceTargetRef.current === 'chat' ? "Listening... speak now" : "Ask about rain, travel tips, clothing, or monsoon..."}
                    className="flex-1 bg-transparent text-white placeholder-white/40 focus:outline-none transition-all text-sm"
                    value={chatInput}
                    onChange={(e) => setChatInput(e.target.value)}
                    onKeyDown={handleChatKeyDown}
                  />
                  <button
-                   onClick={toggleListen}
-                   className={`p-2.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${isListening ? 'bg-red-500/20 text-red-400 animate-pulse' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                   onClick={() => toggleListen('chat')}
+                   title="Voice Assistant Mic"
+                   className={`p-2.5 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${isListening && activeVoiceTargetRef.current === 'chat' ? 'bg-red-500/30 text-red-300 ring-2 ring-red-400/50 animate-pulse' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
                  >
                    <Mic size={18} />
                  </button>
                  <button 
-                   onClick={handleChatSend}
+                   onClick={() => handleChatSend()}
                    disabled={chatLoading || !chatInput.trim()}
                    className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white p-2.5 rounded-lg transition-colors cursor-pointer border border-blue-400/20 shadow-lg flex items-center justify-center"
                  >
