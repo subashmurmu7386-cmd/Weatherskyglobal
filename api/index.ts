@@ -155,7 +155,7 @@ app.get('/api/weather', async (req, res) => {
 app.post('/api/daily-insight', async (req, res) => {
   try {
     const { locationName, temperature, condition, humidity, windSpeed, maxTemp, minTemp, timePhase } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEM_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
 
     const fallbackText = `As today's ${condition ? condition.toLowerCase() : 'gentle'} atmosphere unfolds over ${locationName || 'your location'}, temperatures shift between a crisp ${minTemp !== undefined ? Math.round(minTemp) : Math.round(temperature - 4)}°C and a warm ${maxTemp !== undefined ? Math.round(maxTemp) : Math.round(temperature + 3)}°C. Soft ${windSpeed || 10} km/h breezes whisper through ${humidity || 55}% humidity, shaping a serene climate rhythm.`;
 
@@ -180,7 +180,7 @@ Write a concise, elegant, poetic 2 to 3 sentence summary capturing today's clima
 app.post('/api/weather-tips', async (req, res) => {
   try {
     const { temperature, condition, rainChance, uvIndex, aqi, locationName } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEM_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
 
     const getUvTip = (uv: number) => {
       if (uv >= 11) return "Extreme UV Index! Apply SPF 50+ broad-spectrum sunscreen, wear UV-blocking sunglasses & a wide-brim hat, and avoid sun exposure between 10 AM - 4 PM.";
@@ -219,27 +219,46 @@ Only provide bullet points.`;
 app.post('/api/chat', async (req, res) => {
   try {
     const { history, message, locationData } = req.body;
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-    const city = locationData?.name || 'your area';
-    const temp = locationData?.temp ? `${locationData.temp}°C` : 'current temperature';
-    const condition = locationData?.condition || 'current conditions';
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEM_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.API_KEY;
 
     if (!apiKey) {
-      return res.json({ text: `Looking at ${city}, it's currently ${temp} and ${condition}. Stay safe!` });
+      return res.status(400).json({ error: "Unable to connect to AI Assistant. Please check Gemini API Key." });
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    const systemInstruction = `You are a friendly, expert global weather assistant. Current location: ${JSON.stringify(locationData)}`;
+    const systemInstruction = `You are an intelligent, helpful Weather AI assistant. Answer user questions directly (monsoon, UV/sunscreen, travel, outfits) using current weather context. Reply naturally in concise Hindi/Hinglish/English.\n\nCurrent Location Weather Context:\n${JSON.stringify(locationData, null, 2)}`;
+    
     const contents = (history || []).map((msg: any) => ({
       role: msg.role === 'user' ? 'user' : 'model',
       parts: [{ text: msg.text }]
     }));
     contents.push({ role: 'user', parts: [{ text: message }] });
 
-    const response = await ai.models.generateContent({ model: 'gemini-2.5-flash', contents, config: { systemInstruction } }).catch(() => null);
-    res.json({ text: response?.text || `Looking at ${city}, it's currently ${temp} and ${condition}. Stay safe!` });
+    let responseText = "";
+    const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: { systemInstruction }
+        });
+        if (response && response.text) {
+          responseText = response.text;
+          break;
+        }
+      } catch (aiError: any) {
+        console.info(`Chat Model ${modelName} fallback triggered on Vercel API route.`);
+      }
+    }
+
+    if (responseText) {
+      return res.json({ text: responseText });
+    }
+
+    return res.status(500).json({ error: "Unable to connect to AI Assistant. Please check Gemini API Key." });
   } catch (error) {
-    res.json({ text: `Looking at weather details for your location. Stay safe and enjoy your day!` });
+    res.status(500).json({ error: "Unable to connect to AI Assistant. Please check Gemini API Key." });
   }
 });
 
