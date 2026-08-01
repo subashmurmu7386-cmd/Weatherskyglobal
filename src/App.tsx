@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useRef, KeyboardEvent } from 'react';
+import { GoogleGenAI } from '@google/genai';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Mic, Maximize, Minimize, MapPin, User, Moon, CloudRain, Droplets, Wind, Thermometer, Loader2, AlertCircle, Sun, Cloud, CloudLightning, Snowflake, CalendarDays, Map as MapIcon, Compass, Sparkles, Umbrella, CarFront, Shirt, Sprout, Tractor, Snowflake as FrostIcon, TreePine, Trophy, Activity, SunMedium, Eye, Sunrise, Sunset, MoonStar, Heart, X, Menu, CloudDrizzle, CloudSnow, Send, Download, Tent, Fish, Waves, Flower2, Dog, PartyPopper, Telescope, BookOpen, Flame, Award, Zap, ShieldAlert, WifiOff, SearchX, CheckCircle, History, TrendingUp, BarChart2, FileText, Clock } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
@@ -1592,6 +1593,36 @@ export default function App() {
     updateCurrentSession(newHistory);
     setChatLoading(true);
 
+    const locationData = weatherData ? {
+      name: weatherData.location.name,
+      region: weatherData.location.region,
+      country: weatherData.location.country,
+      temp: weatherData.current.temp_c,
+      feelslike: weatherData.current.feelslike_c,
+      condition: weatherData.current.condition.text,
+      humidity: weatherData.current.humidity,
+      wind_kph: weatherData.current.wind_kph,
+      wind_dir: weatherData.current.wind_dir,
+      uv: weatherData.current.uv,
+      air_quality: weatherData.current.air_quality ? {
+        aqi: (weatherData.current.air_quality as any)['us-epa-index'],
+        pm2_5: Math.round((weatherData.current.air_quality as any).pm2_5 || 0),
+        pm10: Math.round((weatherData.current.air_quality as any).pm10 || 0)
+      } : null,
+      rainChance: weatherData.forecast?.forecastday?.[0]?.day?.daily_chance_of_rain || 0,
+      maxTemp: weatherData.forecast?.forecastday?.[0]?.day?.maxtemp_c,
+      minTemp: weatherData.forecast?.forecastday?.[0]?.day?.mintemp_c,
+      time: weatherData.location.localtime,
+      hourlyForecast: weatherData.forecast?.forecastday?.[0]?.hour?.map((h: any) => ({
+        time: h.time.split(' ')[1],
+        temp: h.temp_c,
+        condition: h.condition.text,
+        chance_of_rain: h.chance_of_rain
+      })).filter((_: any, idx: number) => idx % 3 === 0)
+    } : null;
+
+    let serverSuccess = false;
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
@@ -1599,46 +1630,70 @@ export default function App() {
         body: JSON.stringify({
           message: userMessage,
           history: chatHistory.map(msg => ({ role: msg.role, text: msg.text })),
-          locationData: weatherData ? {
-            name: weatherData.location.name,
-            region: weatherData.location.region,
-            country: weatherData.location.country,
-            temp: weatherData.current.temp_c,
-            feelslike: weatherData.current.feelslike_c,
-            condition: weatherData.current.condition.text,
-            humidity: weatherData.current.humidity,
-            wind_kph: weatherData.current.wind_kph,
-            wind_dir: weatherData.current.wind_dir,
-            uv: weatherData.current.uv,
-            air_quality: weatherData.current.air_quality ? {
-              aqi: (weatherData.current.air_quality as any)['us-epa-index'],
-              pm2_5: Math.round((weatherData.current.air_quality as any).pm2_5 || 0),
-              pm10: Math.round((weatherData.current.air_quality as any).pm10 || 0)
-            } : null,
-            rainChance: weatherData.forecast?.forecastday?.[0]?.day?.daily_chance_of_rain || 0,
-            maxTemp: weatherData.forecast?.forecastday?.[0]?.day?.maxtemp_c,
-            minTemp: weatherData.forecast?.forecastday?.[0]?.day?.mintemp_c,
-            time: weatherData.location.localtime,
-            hourlyForecast: weatherData.forecast?.forecastday?.[0]?.hour?.map((h: any) => ({
-              time: h.time.split(' ')[1],
-              temp: h.temp_c,
-              condition: h.condition.text,
-              chance_of_rain: h.chance_of_rain
-            })).filter((_: any, idx: number) => idx % 3 === 0)
-          } : null
+          locationData
         }),
       });
 
-      if (!response.ok) throw new Error('Network error');
-      
-      const data = await response.json();
-      if (data.text) {
-        updateCurrentSession([...newHistory, { role: 'assistant', text: data.text }]);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.text && !data.error) {
+          updateCurrentSession([...newHistory, { role: 'assistant', text: data.text }]);
+          serverSuccess = true;
+          setChatLoading(false);
+          return;
+        }
       }
     } catch (err) {
-      console.error(err);
-      updateCurrentSession([...newHistory, { role: 'assistant', text: "I apologize, but I had trouble reaching the weather service. Please try again in a moment!" }]);
-    } finally {
+      console.warn("Server chat route error, trying client-side Gemini API fallback...", err);
+    }
+
+    if (!serverSuccess) {
+      // Direct client-side Gemini fallback
+      const clientApiKey = import.meta.env.VITE_GEM_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+      if (clientApiKey) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: clientApiKey });
+          const systemInstruction = `You are an intelligent, helpful Weather AI assistant. Answer user questions directly (monsoon, UV/sunscreen, travel, outfits) using current weather context. Reply naturally in concise Hindi/Hinglish/English.\n\nCurrent Location Weather Context:\n${JSON.stringify(locationData, null, 2)}`;
+
+          const contents = chatHistory.map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.text }]
+          }));
+          contents.push({ role: 'user', parts: [{ text: userMessage }] });
+
+          const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
+          let clientResponseText = "";
+
+          for (const modelName of modelsToTry) {
+            try {
+              const res = await ai.models.generateContent({
+                model: modelName,
+                contents,
+                config: { systemInstruction }
+              });
+              if (res && res.text) {
+                clientResponseText = res.text;
+                break;
+              }
+            } catch (mErr) {
+              console.warn(`Client Gemini model ${modelName} attempt failed:`, mErr);
+            }
+          }
+
+          if (clientResponseText) {
+            updateCurrentSession([...newHistory, { role: 'assistant', text: clientResponseText }]);
+            setChatLoading(false);
+            return;
+          }
+        } catch (clientErr) {
+          console.error("Direct client Gemini SDK call failed:", clientErr);
+        }
+      }
+
+      updateCurrentSession([
+        ...newHistory,
+        { role: 'assistant', text: "Unable to connect to AI Assistant. Please check Gemini API Key." }
+      ]);
       setChatLoading(false);
     }
   };
