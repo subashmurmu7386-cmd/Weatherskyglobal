@@ -429,14 +429,37 @@ Only provide bullet points. Make each point clear, friendly, concise, and highly
     try {
       const { history, message, locationData } = req.body;
       const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
-      const city = locationData?.name || 'your area';
-      const temp = locationData?.temp ? `${locationData.temp}°C` : 'the current temperature';
-      const condition = locationData?.condition || 'the current conditions';
+      const city = locationData?.name || 'your location';
+      const temp = locationData?.temp !== undefined ? `${locationData.temp}°C` : 'the current temperature';
+      const condition = locationData?.condition || 'current conditions';
+      const humidity = locationData?.humidity !== undefined ? `${locationData.humidity}%` : '';
+      const rainChance = locationData?.rainChance !== undefined ? `${locationData.rainChance}%` : '';
+
+      const generateFallbackResponse = (userPrompt: string) => {
+        const lowerPrompt = userPrompt.toLowerCase();
+        if (lowerPrompt.includes('rain') || lowerPrompt.includes('monsoon') || lowerPrompt.includes('umbrella')) {
+          if (rainChance && parseInt(rainChance) > 40) {
+            return `In ${city}, there is a **${rainChance} chance of rain** today with ${condition} conditions (${temp}). Keeping an umbrella handy and planning indoor alternatives for peak rain hours is strongly advised!`;
+          }
+          return `Currently in ${city}, weather conditions show **${condition}** at ${temp}${humidity ? ` with ${humidity} humidity` : ''}. Direct rain risk is relatively low right now, but stay updated if cloud cover thickens.`;
+        }
+        if (lowerPrompt.includes('wear') || lowerPrompt.includes('cloth') || lowerPrompt.includes('dress') || lowerPrompt.includes('outfit')) {
+          const numericTemp = locationData?.temp || 20;
+          if (numericTemp < 15) {
+            return `For ${city}'s cooler weather (${temp}), layered clothing like a jacket, sweater, or warm coat is recommended.`;
+          } else if (numericTemp > 28) {
+            return `With warm temperatures of ${temp} in ${city}, lightweight breathable cottons, sunglasses, and staying hydrated will keep you comfortable.`;
+          }
+          return `For ${city} at ${temp} under ${condition} skies, comfortable casual wear or light layers will suit you nicely today.`;
+        }
+        if (lowerPrompt.includes('travel') || lowerPrompt.includes('trip') || lowerPrompt.includes('picnic') || lowerPrompt.includes('flight')) {
+          return `Travel considerations for **${city}**: Conditions are currently **${condition}** at ${temp}${humidity ? ` (${humidity} humidity)` : ''}. Overall, conditions are generally manageable—just double-check local traffic and weather alerts if driving during peak hours!`;
+        }
+        return `Regarding **${city}**: The weather is currently **${condition}** at **${temp}**${humidity ? ` with ${humidity} humidity` : ''}. If you need specific insights on rain timing, travel, attire, or atmospheric trends, feel free to ask!`;
+      };
 
       if (!apiKey) {
-        return res.json({ 
-          text: `Looking at ${city}, it's currently ${temp} and ${condition}. I suggest you dress appropriately for this weather and stay safe! Let me know if there's anything else I can help with.` 
-        });
+        return res.json({ text: generateFallbackResponse(message || '') });
       }
 
       const ai = new GoogleGenAI({
@@ -448,7 +471,14 @@ Only provide bullet points. Make each point clear, friendly, concise, and highly
         }
       });
 
-      const systemInstruction = `You are a friendly, expert global weather assistant. You discuss real-time weather conditions, clothes suggestions, travel alerts, farming ideas, and real-time monsoon details based on the user's questions. Keep responses concise. Current location data: ${JSON.stringify(locationData)}`;
+      const systemInstruction = `You are an intelligent, friendly, and real-time global AI Weather Assistant.
+Your purpose is to answer the user's specific questions directly, naturally, and accurately using real weather metrics and forecast insights.
+DO NOT begin responses with repetitive boilerplate like "Looking at [city], it's currently [temp]..." unless specifically asked for a current summary. Jump straight into answering their exact query (e.g., monsoon status, travel feasibility, rain timing, UV protection, farming, or attire recommendations).
+
+Current Location Weather Context:
+${JSON.stringify(locationData, null, 2)}
+
+Provide clear, helpful, well-formatted Markdown responses. Keep the tone conversational, helpful, and concise.`;
 
       // Build the conversation history
       const contents = (history || []).map((msg: any) => ({
@@ -458,7 +488,7 @@ Only provide bullet points. Make each point clear, friendly, concise, and highly
       contents.push({ role: 'user', parts: [{ text: message }] });
 
       let responseText = "";
-      const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+      const modelsToTry = ['gemini-3.6-flash', 'gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-flash-latest'];
       for (const modelName of modelsToTry) {
         try {
           const response = await ai.models.generateContent({
@@ -473,7 +503,6 @@ Only provide bullet points. Make each point clear, friendly, concise, and highly
             break;
           }
         } catch (aiError: any) {
-          // Silent fallback on rate limit / model quota
           console.info(`Chat Model ${modelName} fallback triggered.`);
         }
       }
@@ -482,22 +511,12 @@ Only provide bullet points. Make each point clear, friendly, concise, and highly
         return res.json({ text: responseText });
       }
 
-      // Fallback if all models failed
-      res.json({ 
-        text: `Looking at ${city}, it's currently ${temp} and ${condition}. I suggest you dress appropriately for this weather and stay safe! Let me know if there's anything else I can help with.` 
-      });
+      // Fallback if AI models failed
+      res.json({ text: generateFallbackResponse(message || '') });
     } catch (error: any) {
       console.error('Error generating AI chat response:', error);
-      
-      const { locationData } = req.body;
-      const city = locationData?.name || 'your area';
-      const temp = locationData?.temp ? `${locationData.temp}°C` : 'the current temperature';
-      const condition = locationData?.condition || 'the current conditions';
-
-      // Fallback for quota limits or API errors
-      res.json({ 
-        text: `Sorry, I'm currently receiving too many requests. However, looking at ${city}, it's currently ${temp} and ${condition}. I suggest you dress appropriately for this weather and stay safe! Let me know if there's anything else I can help with later.` 
-      });
+      const { message } = req.body;
+      res.json({ text: `I am experiencing a momentary connection hiccup. Here's a quick update: ${message ? `Regarding "${message}"` : 'Weather status'}, please check local conditions or try again in a few moments.` });
     }
   });
 
