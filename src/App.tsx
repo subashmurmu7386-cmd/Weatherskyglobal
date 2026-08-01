@@ -19,6 +19,8 @@ import { WindCompassNeedle, getWindDegree } from './components/WindCompassNeedle
 import { AnimatedValue } from './components/AnimatedValue';
 import { PwaInstallModal } from './components/PwaInstallModal';
 import { LocationDetailsModal } from './components/LocationDetailsModal';
+import { AdsterraNative } from './components/AdsterraNative';
+import { AdsterraBanner } from './components/AdsterraBanner';
 import { formatLocation, formatLocationString } from './utils/formatLocation';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -1797,7 +1799,7 @@ export default function App() {
           <button 
             onClick={() => {
               // @ts-ignore
-              const monetagLink = import.meta.env.VITE_MONETAG_DIRECT_LINK || "YOUR_MONETAG_DIRECT_LINK_HERE";
+              const monetagLink = import.meta.env.VITE_MONETAG_SMARTLINK || import.meta.env.VITE_MONETAG_DIRECT_LINK || "https://otourgod.com/4/8786576";
               window.open(monetagLink, '_blank');
             }}
             className="shrink-0 px-2 py-1.5 md:px-4 md:py-2 bg-gradient-to-tr from-blue-600 to-blue-400 border border-white/20 rounded-md md:rounded-xl backdrop-blur-md hover:from-blue-500 hover:to-blue-300 transition-all cursor-pointer shadow-lg flex items-center justify-center text-[9px] sm:text-[10px] md:text-sm font-bold text-white tracking-wider uppercase whitespace-nowrap"
@@ -2051,6 +2053,9 @@ export default function App() {
         {/* Cinematic Floating Island Hero Canvas */}
         <HeroCanvas weatherData={weatherData} activeContext={activeContext} loading={loading} onLocate={handleLocation} userName={userName} enableAnimations={enableAnimations} isFavorite={isCurrentFavorite} onToggleFavorite={toggleFavoriteCity} onOpenLocationDetails={() => setShowLocationModal(true)} />
         
+        {/* Placement 1: Adsterra Native 1x2 Banner */}
+        <AdsterraNative />
+
         {/* Advanced Health & Environment Metrics */}
         {weatherData && (
           <div className="w-full mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -3407,13 +3412,8 @@ export default function App() {
           </div>
         </div>
 
-        {/* Adsterra Banner Slot - Horizontal */}
-        <div className="w-full mt-4 mb-4">
-          <div className="w-full h-[100px] md:h-[120px] bg-slate-900/40 backdrop-blur-md border border-dashed border-white/20 rounded-2xl flex flex-col items-center justify-center text-blue-200/50 shadow-inner">
-            <span className="text-sm font-medium tracking-widest uppercase">Advertisement</span>
-            <span className="text-xs mt-1 opacity-60">Adsterra Banner Slot</span>
-          </div>
-        </div>
+        {/* Placement 2: Adsterra Standard Display Banner */}
+        <AdsterraBanner format="banner300x250" />
 
         {/* Astronomy Tracker */}
         <div className="w-full mt-8 mb-4">
@@ -3561,6 +3561,9 @@ export default function App() {
             </div>
           </div>
         </div>
+        {/* Placement 3: Adsterra Native 1x2 Banner */}
+        <AdsterraNative />
+
         {/* AI Weather Lab Section */}
         <div className="w-full mt-8 mb-4">
           <div className="flex items-center space-x-2 mb-6 px-2">
@@ -3622,12 +3625,9 @@ export default function App() {
 
       </main>
 
-      {/* Adsterra Banner Slot - Bottom */}
+      {/* Placement 4: Adsterra Standard Display Banner */}
       <div className="w-full max-w-5xl mx-auto px-4 pb-12 mt-auto">
-        <div className="w-full h-[100px] md:h-[120px] bg-slate-900/40 backdrop-blur-md border border-dashed border-white/20 rounded-2xl flex flex-col items-center justify-center text-blue-200/50 shadow-inner">
-          <span className="text-sm font-medium tracking-widest uppercase">Advertisement</span>
-          <span className="text-xs mt-1 opacity-60">Adsterra Banner Slot</span>
-        </div>
+        <AdsterraBanner format="banner300x250" />
       </div>
 
       {/* PWA Installation Modal */}
