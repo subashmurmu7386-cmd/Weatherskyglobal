@@ -301,7 +301,61 @@ async function startServer() {
     }
   });
 
-  // API Route for AI Recommendations
+  // API Route for Daily Weather Insight (Poetic Summary)
+  app.post('/api/daily-insight', async (req, res) => {
+    try {
+      const { locationName, temperature, condition, humidity, windSpeed, maxTemp, minTemp, timePhase } = req.body;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
+
+      const fallbackText = `As today's ${condition ? condition.toLowerCase() : 'gentle'} atmosphere unfolds over ${locationName || 'your location'}, temperatures shift between a crisp ${minTemp !== undefined ? Math.round(minTemp) : Math.round(temperature - 4)}°C and a warm ${maxTemp !== undefined ? Math.round(maxTemp) : Math.round(temperature + 3)}°C. Soft ${windSpeed || 10} km/h breezes whisper through ${humidity || 55}% humidity, shaping a serene climate rhythm.`;
+
+      if (!apiKey) {
+        return res.json({ insight: fallbackText });
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      const prompt = `You are an evocative, poetic meteorologist and climate writer for ${locationName || 'the city'}.
+Current Weather: ${condition} at ${temperature}°C.
+Humidity: ${humidity}%, Wind Speed: ${windSpeed} km/h.
+Day's temperature shift range: High ${maxTemp ?? temperature}°C / Low ${minTemp ?? temperature}°C.
+Time phase: ${timePhase || 'day'}.
+
+Write a concise, elegant, poetic 2 to 3 sentence summary capturing today's climate shift, atmospheric mood, and natural rhythm (e.g. how the morning breeze blends into afternoon warmth or crisp evening air).
+Make it evocative, serene, and inspiring. Keep it strictly under 55 words. Do NOT use bullet points, list numbers, or quotation marks. Output pure poetic prose text only.`;
+
+      let insightText = "";
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash'];
+      for (const modelName of modelsToTry) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+          });
+          if (response?.text) {
+            insightText = response.text.trim().replace(/^["']|["']$/g, '');
+            break;
+          }
+        } catch (aiError: any) {
+          console.info(`Daily Insight Model ${modelName} fallback triggered.`);
+        }
+      }
+
+      res.json({ insight: insightText || fallbackText });
+    } catch (error) {
+      console.error('Error generating daily weather insight:', error);
+      res.json({ insight: `As the climate shifts over ${req.body?.locationName || 'your city'}, temperatures balance gracefully amid changing atmospheric currents. Enjoy the natural harmony of today's skies.` });
+    }
+  });
+
+  // API Route for AI Recommendations`,TargetContent:
   app.post('/api/weather-tips', async (req, res) => {
     try {
       const { temperature, condition, rainChance, uvIndex, aqi, locationName } = req.body;
