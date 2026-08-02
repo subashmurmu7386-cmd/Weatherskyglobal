@@ -7,7 +7,7 @@ interface AdsterraNativeProps {
 
 export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
   className = '',
-  adKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADSTERRA_NATIVE_KEY) || '1a2b3c4d5e6f7g8h'
+  adKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADSTERRA_NATIVE_KEY) || '54be31a9ecb4f14835a9fa3ac205c0af'
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef<boolean>(false);
@@ -30,7 +30,7 @@ export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
 
       const script = document.createElement('script');
       script.type = 'text/javascript';
-      script.src = `//www.highperformanceformat.com/${adKey}/invoke.js`;
+      script.src = `https://pl30635924.effectivecpmnetwork.com/${adKey}/invoke.js`;
       script.async = true;
       script.setAttribute('data-cfasync', 'false');
 
@@ -67,3 +67,4 @@ export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
 };
 
 export default AdsterraNative;
+
