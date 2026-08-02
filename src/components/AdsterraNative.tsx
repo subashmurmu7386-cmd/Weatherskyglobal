@@ -7,9 +7,7 @@ interface AdsterraNativeProps {
 
 export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
   className = '',
-  <script async="async" data-cfasync="false" src="https://pl30635924.effectivecpmnetwork.com/54be31a9ecb4f14835a9fa3ac205c0af/invoke.js"></script>
-<div id="container-54be31a9ecb4f14835a9fa3ac205c0af"></div>
-  
+  adKey = '54be31a9ecb4f14835a9fa3ac205c0af'
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef<boolean>(false);
@@ -19,9 +17,11 @@ export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
     loadedRef.current = true;
 
     try {
+      // Create container for Adsterra native ad
       const scriptContainer = document.createElement('div');
       scriptContainer.id = `container-${adKey}`;
 
+      // Global Options for Adsterra
       (window as any).atOptions = {
         key: adKey,
         format: 'iframe',
@@ -30,9 +30,10 @@ export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
         params: {}
       };
 
+      // Create Script element
       const script = document.createElement('script');
       script.type = 'text/javascript';
-      script.src = `//www.highperformanceformat.com/${adKey}/invoke.js`;
+      script.src = `https://pl30635924.effectivecpmnetwork.com/${adKey}/invoke.js`;
       script.async = true;
       script.setAttribute('data-cfasync', 'false');
 
@@ -62,10 +63,11 @@ export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
       </div>
 
       <div ref={containerRef} className="w-full flex justify-center items-center min-h-[100px] overflow-x-auto hide-scrollbar">
-        {/* Adsterra Native Script Target */}
+        {/* Adsterra Native Target Container */}
       </div>
     </div>
   );
 };
 
 export default AdsterraNative;
+
