@@ -7,7 +7,9 @@ interface AdsterraNativeProps {
 
 export const AdsterraNative: React.FC<AdsterraNativeProps> = ({
   className = '',
-  adKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADSTERRA_NATIVE_KEY) || '1a2b3c4d5e6f7g8h'
+  <script async="async" data-cfasync="false" src="https://pl30635924.effectivecpmnetwork.com/54be31a9ecb4f14835a9fa3ac205c0af/invoke.js"></script>
+<div id="container-54be31a9ecb4f14835a9fa3ac205c0af"></div>
+  
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const loadedRef = useRef<boolean>(false);
