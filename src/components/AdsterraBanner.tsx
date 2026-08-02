@@ -8,7 +8,7 @@ interface AdsterraBannerProps {
 
 export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({
   className = '',
-  bannerKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_ADSTERRA_BANNER_KEY) || '8f7e6d5c4b3a2109',
+  bannerKey = 'f858ce4c863276592bd9524a55dd3114',
   format = 'banner300x250'
 }) => {
   const bannerRef = useRef<HTMLDivElement>(null);
@@ -22,6 +22,7 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({
       const width = format === 'banner300x250' ? 300 : 728;
       const height = format === 'banner300x250' ? 250 : 90;
 
+      // Adsterra Configuration
       (window as any).atOptions = {
         key: bannerKey,
         format: 'iframe',
@@ -30,9 +31,10 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({
         params: {}
       };
 
+      // Dynamic Script Loading
       const invokeScript = document.createElement('script');
       invokeScript.type = 'text/javascript';
-      invokeScript.src = `//www.highperformanceformat.com/${bannerKey}/invoke.js`;
+      invokeScript.src = `https://www.highperformanceformat.com/${bannerKey}/invoke.js`;
       invokeScript.async = true;
 
       if (bannerRef.current) {
@@ -57,12 +59,15 @@ export const AdsterraBanner: React.FC<AdsterraBannerProps> = ({
         </span>
         <span className="text-[10px] text-white/30 uppercase tracking-wider font-mono">Adsterra Display</span>
       </div>
-      <div 
-        ref={bannerRef} 
-        className={`w-full flex justify-center items-center overflow-x-auto max-w-full ${format === 'banner300x250' ? 'min-h-[250px]' : 'min-h-[90px]'}`}
+      <div
+        ref={bannerRef}
+        className={`w-full flex justify-center items-center overflow-x-auto max-w-full ${
+          format === 'banner300x250' ? 'min-h-[250px]' : 'min-h-[90px]'
+        }`}
       />
     </div>
   );
 };
 
 export default AdsterraBanner;
+        
